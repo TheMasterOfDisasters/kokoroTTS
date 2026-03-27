@@ -1,0 +1,71 @@
+version: '3'
+
+vars:
+  IMAGE: kokorotts:test
+  PORT: '7860'
+  GPU_DEVICE: '0'
+  CONTAINER: kokorotts
+  CONTAINER_LOCAL: kokorotts_local
+  TEMP_WAV: '%TEMP%\\kokorotts_task.wav'
+
+tasks:
+  gpuinfo:
+    desc: Show host GPU indexes (use with GPU_DEVICE variable)
+    cmds:
+      - cmd /c nvidia-smi --query-gpu=index,name --format=csv,noheader
+
+  image:
+    desc: Build local KokoroTTS Docker image
+    cmds:
+      - cmd /c docker build -t {{.IMAGE}} .
+
+  imagerun:
+    desc: Run image with UI and API on PORT (default GPU_DEVICE=0)
+    cmds:
+      - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
+      - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
+      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 {{.IMAGE}}
+      - cmd /c docker ps --filter "name={{.CONTAINER}}"
+
+  localrun:
+    desc: Run image with local kokorotts/app.py bind-mounted for quick iteration
+    cmds:
+      - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
+      - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
+      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 -v "{{.TASKFILE_DIR}}\kokorotts\app.py:/app/kokorotts/app.py:ro" {{.IMAGE}}
+      - cmd /c docker ps --filter "name={{.CONTAINER_LOCAL}}"
+
+  imageweb:
+    desc: Open default browser to local KokoroTTS UI
+    cmds:
+      - cmd /c start "" "http://localhost:{{.PORT}}"
+
+  imageapi:
+    desc: Call API, play generated temp WAV, then remove it
+    cmds:
+      - 'cmd /c curl.exe -sS --retry 30 --retry-delay 2 --retry-connrefused http://localhost:{{.PORT}}/tts/ping >nul'
+      - 'cmd /c curl.exe -sS -X POST http://localhost:{{.PORT}}/tts/convert -H "Content-Type: application/json" -d "{\"text\":\"Hello world. This is Kokoro TTS.\",\"speed\":1.0,\"voice\":\"af_heart\",\"use_gpu\":true}" --output {{.TEMP_WAV}}'
+      - 'cmd /c if not exist {{.TEMP_WAV}} exit /b 1'
+      - 'cmd /c python -c "import winsound; winsound.PlaySound(r''{{.TEMP_WAV}}'', winsound.SND_FILENAME)"'
+      - 'cmd /c del /f /q {{.TEMP_WAV}}'
+
+  imagestop:
+    desc: Stop running KokoroTTS containers
+    cmds:
+      - cmd: cmd /c docker stop {{.CONTAINER}} >nul 2>&1
+        ignore_error: true
+      - cmd: cmd /c docker stop {{.CONTAINER_LOCAL}} >nul 2>&1
+        ignore_error: true
+
+  logs:
+    desc: Show logs from active KokoroTTS container
+    cmds:
+      - cmd /c docker logs --tail 200 {{.CONTAINER}}
+
+  nuke:
+    desc: Remove KokoroTTS local containers and image
+    cmds:
+      - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
+      - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
+      - cmd /c docker rmi -f {{.IMAGE}} >nul 2>&1
+
