@@ -4,6 +4,7 @@ vars:
   IMAGE: kokorotts:test
   PORT: '7860'
   GPU_DEVICE: '0'
+  HF_TOKEN: ''
   CONTAINER: kokorotts
   CONTAINER_LOCAL: kokorotts_local
   TEMP_WAV: '%TEMP%\\kokorotts_task.wav'
@@ -24,15 +25,15 @@ tasks:
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
-      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 {{.IMAGE}}
+      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 -e HF_TOKEN={{.HF_TOKEN}} {{.IMAGE}}
       - cmd /c docker ps --filter "name={{.CONTAINER}}"
 
   localrun:
-    desc: Run image with local kokorotts/app.py bind-mounted for quick iteration
+    desc: Run image with local kokorotts/ bind-mounted for hot-swapping
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
-      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 -v "{{.TASKFILE_DIR}}\kokorotts\app.py:/app/kokorotts/app.py:ro" {{.IMAGE}}
+      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 -e UVICORN_RELOAD=1 -e HF_TOKEN={{.HF_TOKEN}} -v "{{.TASKFILE_DIR}}\kokorotts:/app/kokorotts" {{.IMAGE}}
       - cmd /c docker ps --filter "name={{.CONTAINER_LOCAL}}"
 
   imageweb:

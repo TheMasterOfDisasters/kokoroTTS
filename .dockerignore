@@ -1,0 +1,30 @@
+# Git and local metadata
+.git
+.gitignore
+.github
+.idea
+
+# Python cache/artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local envs and temp
+.venv/
+venv/
+env/
+*.log
+
+# Workspace scratch area
+todo/
+
+# Large or non-runtime directories
+tests/
+examples/
+demo/
+
