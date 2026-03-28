@@ -72,12 +72,11 @@ curl -X POST "http://localhost:7860/tts/convert" \
 
 ## Offline Behavior
 
-The Docker build prefetches model/config + UI voice packs into the image cache.
-Runtime sets Hugging Face offline env flags so the app can serve without internet access after image build.
+During Docker build, the image prefetches model/config + UI voice packs into the Hugging Face cache inside the image.
+At runtime, `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are enabled, so a pulled/built image can run on a machine with no internet access.
 
 ## Notes
 
 - First request can still take longer due to initial model/device warm-up.
 - API endpoint currently returns WAV stream from `/tts/convert`.
 - Recommended image tag: `sensejworld/kokorotts:latest`.
-
