@@ -1,9 +1,9 @@
-"""Kokoro TTS CLI
+"""KokoroTTS CLI
 Example usage:
-python3 -m kokoro --text "The sky above the port was the color of television, tuned to a dead channel." -o file.wav --debug
+python3 -m kokorotts --text "The sky above the port was the color of television, tuned to a dead channel." -o file.wav --debug
 
 echo "Bom dia mundo, como vão vocês" > text.txt
-python3 -m kokoro -i text.txt -l p --voice pm_alex > audio.wav
+python3 -m kokorotts -i text.txt -l p --voice pm_alex > audio.wav
 
 Common issues:
 pip not installed: `uv pip install pip`
@@ -33,13 +33,13 @@ languages = [
 ]
 
 if TYPE_CHECKING:
-    from kokoro import KPipeline
+    from kokorotts import KPipeline
 
 
 def generate_audio(
     text: str, kokoro_language: str, voice: str, speed=1
 ) -> Generator["KPipeline.Result", None, None]:
-    from kokoro import KPipeline
+    from kokorotts import KPipeline
 
     if not voice.startswith(kokoro_language):
         logger.warning(f"Voice {voice} is not made for language {kokoro_language}")

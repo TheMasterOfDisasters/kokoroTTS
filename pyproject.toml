@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kokoro"
-version = "0.9.4"
-description = "TTS"
+name = "kokorotts"
+version = "0.0.1"
+description = "KokoroTTS UI + API"
 readme = "README.md"
 authors = [
-    { name="hexgrad", email="hello@hexgrad.com" }
+    { name="TheMasterOfDisasters" }
 ]
 license = { file = "LICENSE" }
 classifiers = [
@@ -27,12 +27,13 @@ dependencies = [
 ]
 
 [project.scripts]
-kokoro = "kokoro.__main__:main"
+kokorotts = "kokorotts.__main__:main"
+kokoro = "kokorotts.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-only-include = ["kokoro"]
+only-include = ["kokorotts"]
 only-packages = true
 
 [project.urls]
-Homepage = "https://github.com/hexgrad/kokoro"
-Repository = "https://github.com/hexgrad/kokoro"
+Homepage = "https://github.com/TheMasterOfDisasters/kokoroTTS"
+Repository = "https://github.com/TheMasterOfDisasters/kokoroTTS"

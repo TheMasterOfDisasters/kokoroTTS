@@ -13,12 +13,12 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from kokoro import __version__ as KOKORO_VERSION
-from kokoro import KModel, KPipeline
+from kokorotts import __version__ as KOKORO_VERSION
+from kokorotts import KModel, KPipeline
 
 SAMPLE_RATE = 24000
 DEFAULT_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
-APP_VERSION = os.getenv("APP_VERSION", f"kokoro-{KOKORO_VERSION}")
+APP_VERSION = os.getenv("APP_VERSION", KOKORO_VERSION)
 BUILD_ID = os.getenv("BUILD_ID", "dev")
 DEFAULT_DEVICE = os.getenv("KOKOROTTS_DEVICE", "auto")
 DATA_DIR = Path(__file__).resolve().parent
@@ -316,7 +316,7 @@ with gr.Blocks(title="KokoroTTS") as ui:
     stop_btn.click(fn=None, cancels=stream_event)
     predict_btn.click(fn=predict, inputs=[text, voice, speed], outputs=[out_audio])
 
-api = FastAPI(title="KokoroTTS API", version="1.0")
+api = FastAPI(title="KokoroTTS API", version=KOKORO_VERSION)
 
 
 class TTSRequest(BaseModel):

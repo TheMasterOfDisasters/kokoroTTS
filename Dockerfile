@@ -13,7 +13,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md LICENSE /app/
-COPY kokoro /app/kokoro
 COPY kokorotts /app/kokorotts
 
 RUN python -m pip install --upgrade pip setuptools wheel \
@@ -48,4 +47,3 @@ COPY --from=builder /app /app
 EXPOSE 7860
 
 CMD ["python", "-u", "kokorotts/app.py"]
-

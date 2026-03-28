@@ -1,5 +1,5 @@
 # ADAPTED from https://github.com/yl4579/StyleTTS2/blob/main/Modules/istftnet.py
-from kokoro.custom_stft import CustomSTFT
+from .custom_stft import CustomSTFT
 from torch.nn.utils.parametrizations import weight_norm
 import math
 import torch
