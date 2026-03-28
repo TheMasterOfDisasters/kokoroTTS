@@ -3,6 +3,7 @@ import os
 import random
 import wave
 from pathlib import Path
+from typing import Optional
 
 import gradio as gr
 import numpy as np
@@ -12,17 +13,17 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from kokoro import __version__ as KOKORO_VERSION
 from kokoro import KModel, KPipeline
 
 SAMPLE_RATE = 24000
 DEFAULT_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
+APP_VERSION = os.getenv("APP_VERSION", f"kokoro-{KOKORO_VERSION}")
+BUILD_ID = os.getenv("BUILD_ID", "dev")
+DEFAULT_DEVICE = os.getenv("KOKOROTTS_DEVICE", "auto")
 DATA_DIR = Path(__file__).resolve().parent
 CUDA_AVAILABLE = torch.cuda.is_available()
-
-models = {
-    gpu: KModel(repo_id=DEFAULT_REPO_ID).to("cuda" if gpu else "cpu").eval()
-    for gpu in [False] + ([True] if CUDA_AVAILABLE else [])
-}
+MODEL_CACHE = {}
 pipelines = {
     lang_code: KPipeline(lang_code=lang_code, repo_id=DEFAULT_REPO_ID, model=False)
     for lang_code in "ab"
@@ -31,29 +32,57 @@ pipelines["a"].g2p.lexicon.golds["kokoro"] = "kˈOkəɹO"
 pipelines["b"].g2p.lexicon.golds["kokoro"] = "kˈQkəɹQ"
 
 
-def forward_gpu(ps, ref_s, speed):
-    return models[True](ps, ref_s, speed)
+def get_runtime_label() -> str:
+    if CUDA_AVAILABLE:
+        visible = os.getenv("CUDA_VISIBLE_DEVICES", "all")
+        return f"GPU x{torch.cuda.device_count()} (visible={visible})"
+    return "CPU"
 
 
-def synthesize_full(text, voice="af_heart", speed=1, use_gpu=CUDA_AVAILABLE):
+def get_hardware_choices():
+    choices = [("Auto", "auto"), ("CPU 🐌", "cpu")]
+    if CUDA_AVAILABLE:
+        for idx in range(torch.cuda.device_count()):
+            name = torch.cuda.get_device_name(idx)
+            choices.append((f"GPU {idx} 🚀 ({name})", f"cuda:{idx}"))
+    return choices
+
+
+def normalize_device(hardware: str) -> str:
+    if hardware == "auto":
+        return "cuda:0" if CUDA_AVAILABLE else "cpu"
+    if hardware == "gpu":
+        return "cuda:0"
+    if hardware.startswith("cuda") and not CUDA_AVAILABLE:
+        raise RuntimeError("CUDA device requested but CUDA is not available")
+    return hardware
+
+
+def get_model(device: str) -> KModel:
+    if device not in MODEL_CACHE:
+        MODEL_CACHE[device] = KModel(repo_id=DEFAULT_REPO_ID).to(device).eval()
+    return MODEL_CACHE[device]
+
+
+def synthesize_full(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Optional[bool] = None):
     pipeline = pipelines[voice[0]]
     pack = pipeline.load_voice(voice)
-    use_gpu = use_gpu and CUDA_AVAILABLE
+    if use_gpu is not None:
+        hardware = "auto" if use_gpu else "cpu"
+    resolved_device = normalize_device(hardware)
+    model = get_model(resolved_device)
     audio_chunks = []
     phoneme_chunks = []
 
     for _, ps, _ in pipeline(text, voice, speed):
         ref_s = pack[len(ps) - 1]
         try:
-            if use_gpu:
-                audio = forward_gpu(ps, ref_s, speed)
-            else:
-                audio = models[False](ps, ref_s, speed)
+            audio = model(ps, ref_s, speed)
         except gr.exceptions.Error as exc:
-            if use_gpu:
+            if resolved_device.startswith("cuda"):
                 gr.Warning(str(exc))
                 gr.Info("Retrying with CPU. To avoid this error, change Hardware to CPU.")
-                audio = models[False](ps, ref_s, speed)
+                audio = get_model("cpu")(ps, ref_s, speed)
             else:
                 raise gr.Error(exc)
         audio_chunks.append(audio.numpy())
@@ -62,30 +91,30 @@ def synthesize_full(text, voice="af_heart", speed=1, use_gpu=CUDA_AVAILABLE):
     if not audio_chunks:
         return None, ""
 
-    merged_audio = np.concatenate(audio_chunks)
+    merged_audio = to_int16_audio(np.concatenate(audio_chunks))
     merged_ps = "\n".join(phoneme_chunks)
     return (SAMPLE_RATE, merged_audio), merged_ps
 
 
-def generate_first(text, voice="af_heart", speed=1, use_gpu=CUDA_AVAILABLE):
+def generate_first(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Optional[bool] = None):
     pipeline = pipelines[voice[0]]
     pack = pipeline.load_voice(voice)
-    use_gpu = use_gpu and CUDA_AVAILABLE
+    if use_gpu is not None:
+        hardware = "auto" if use_gpu else "cpu"
+    resolved_device = normalize_device(hardware)
+    model = get_model(resolved_device)
     for _, ps, _ in pipeline(text, voice, speed):
         ref_s = pack[len(ps) - 1]
         try:
-            if use_gpu:
-                audio = forward_gpu(ps, ref_s, speed)
-            else:
-                audio = models[False](ps, ref_s, speed)
+            audio = model(ps, ref_s, speed)
         except gr.exceptions.Error as exc:
-            if use_gpu:
+            if resolved_device.startswith("cuda"):
                 gr.Warning(str(exc))
                 gr.Info("Retrying with CPU. To avoid this error, set Hardware to CPU.")
-                audio = models[False](ps, ref_s, speed)
+                audio = get_model("cpu")(ps, ref_s, speed)
             else:
                 raise gr.Error(exc)
-        return (SAMPLE_RATE, audio.numpy()), ps
+        return (SAMPLE_RATE, to_int16_audio(audio.numpy())), ps
     return None, ""
 
 
@@ -100,34 +129,37 @@ def predict(text, voice="af_heart", speed=1):
     return generate_first(text, voice, speed, use_gpu=False)[0]
 
 
-def generate_all(text, voice="af_heart", speed=1, use_gpu=CUDA_AVAILABLE):
+def generate_all(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Optional[bool] = None):
     pipeline = pipelines[voice[0]]
     pack = pipeline.load_voice(voice)
-    use_gpu = use_gpu and CUDA_AVAILABLE
+    if use_gpu is not None:
+        hardware = "auto" if use_gpu else "cpu"
+    resolved_device = normalize_device(hardware)
+    model = get_model(resolved_device)
     first = True
     for _, ps, _ in pipeline(text, voice, speed):
         ref_s = pack[len(ps) - 1]
         try:
-            if use_gpu:
-                audio = forward_gpu(ps, ref_s, speed)
-            else:
-                audio = models[False](ps, ref_s, speed)
+            audio = model(ps, ref_s, speed)
         except gr.exceptions.Error as exc:
-            if use_gpu:
+            if resolved_device.startswith("cuda"):
                 gr.Warning(str(exc))
                 gr.Info("Switching to CPU")
-                audio = models[False](ps, ref_s, speed)
+                audio = get_model("cpu")(ps, ref_s, speed)
             else:
                 raise gr.Error(exc)
-        yield SAMPLE_RATE, audio.numpy()
+        yield SAMPLE_RATE, to_int16_audio(audio.numpy())
         if first:
             first = False
-            yield SAMPLE_RATE, torch.zeros(1).numpy()
+            yield SAMPLE_RATE, np.zeros(1, dtype=np.int16)
 
 
 def audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> bytes:
-    audio = np.clip(audio, -1.0, 1.0)
-    audio_int16 = (audio * 32767).astype(np.int16)
+    if audio.dtype == np.int16:
+        audio_int16 = audio
+    else:
+        audio = np.clip(audio, -1.0, 1.0)
+        audio_int16 = (audio * 32767).astype(np.int16)
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav_file:
         wav_file.setnchannels(1)
@@ -135,6 +167,12 @@ def audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> byt
         wav_file.setframerate(sample_rate)
         wav_file.writeframes(audio_int16.tobytes())
     return buffer.getvalue()
+
+
+def to_int16_audio(audio: np.ndarray) -> np.ndarray:
+    if audio.dtype == np.int16:
+        return audio
+    return (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
 
 
 def get_random_quote():
@@ -219,12 +257,34 @@ with gr.Blocks() as stream_tab:
         gr.Markdown(STREAM_NOTE)
         gr.DuplicateButton()
 
+BADGE_CSS = """
+#build-badge {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.45);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    backdrop-filter: blur(2px);
+}
+"""
+
+hardware_choices = get_hardware_choices()
+hardware_values = {value for _, value in hardware_choices}
+default_hardware = DEFAULT_DEVICE if DEFAULT_DEVICE in hardware_values else "auto"
+
 with gr.Blocks(title="KokoroTTS") as ui:
+    gr.HTML(f"<style>{BADGE_CSS}</style>")
+    gr.HTML(f"<div id='build-badge'>Version: {APP_VERSION} | Build: {BUILD_ID}<br>{get_runtime_label()}</div>")
     with gr.Row():
         with gr.Column():
             text = gr.Textbox(label="Input Text", info="Arbitrarily many characters supported")
             with gr.Row():
-                # Non-filterable dropdown avoids browser password manager misclassification.
                 voice = gr.Dropdown(
                     choices=list(CHOICES.items()),
                     value="af_heart",
@@ -233,12 +293,11 @@ with gr.Blocks(title="KokoroTTS") as ui:
                     filterable=False,
                     allow_custom_value=False,
                 )
-                use_gpu = gr.Dropdown(
-                    [("ZeroGPU 🚀", True), ("CPU 🐌", False)],
-                    value=CUDA_AVAILABLE,
+                hardware = gr.Dropdown(
+                    hardware_choices,
+                    value=default_hardware,
                     label="Hardware",
-                    info="GPU is usually faster, but has a usage quota",
-                    interactive=CUDA_AVAILABLE,
+                    info="Select Auto/CPU or a specific visible GPU",
                 )
             speed = gr.Slider(minimum=0.5, maximum=2, value=1, step=0.1, label="Speed")
             random_btn = gr.Button("🎲 Random Quote 💬", variant="secondary")
@@ -251,9 +310,9 @@ with gr.Blocks(title="KokoroTTS") as ui:
     random_btn.click(fn=get_random_quote, inputs=[], outputs=[text])
     gatsby_btn.click(fn=get_gatsby, inputs=[], outputs=[text])
     frankenstein_btn.click(fn=get_frankenstein, inputs=[], outputs=[text])
-    generate_btn.click(fn=synthesize_full, inputs=[text, voice, speed, use_gpu], outputs=[out_audio, out_ps])
+    generate_btn.click(fn=synthesize_full, inputs=[text, voice, speed, hardware], outputs=[out_audio, out_ps])
     tokenize_btn.click(fn=tokenize_first, inputs=[text, voice], outputs=[out_ps])
-    stream_event = stream_btn.click(fn=generate_all, inputs=[text, voice, speed, use_gpu], outputs=[out_stream])
+    stream_event = stream_btn.click(fn=generate_all, inputs=[text, voice, speed, hardware], outputs=[out_stream])
     stop_btn.click(fn=None, cancels=stream_event)
     predict_btn.click(fn=predict, inputs=[text, voice, speed], outputs=[out_audio])
 
@@ -264,7 +323,8 @@ class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1)
     voice: str = "af_heart"
     speed: float = 1.0
-    use_gpu: bool = True
+    device: str = "auto"
+    use_gpu: Optional[bool] = None
 
 
 @api.get("/tts/ping")
@@ -278,6 +338,7 @@ def convert(payload: TTSRequest) -> StreamingResponse:
         text=payload.text,
         voice=payload.voice,
         speed=payload.speed,
+        hardware=payload.device,
         use_gpu=payload.use_gpu,
     )
     if audio_tuple is None:

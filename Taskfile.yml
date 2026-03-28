@@ -4,6 +4,7 @@ vars:
   IMAGE: kokorotts:test
   PORT: '7860'
   GPU_DEVICE: '0'
+  APP_DEVICE: 'auto'
   HF_TOKEN: ''
   CONTAINER: kokorotts
   CONTAINER_LOCAL: kokorotts_local
@@ -25,7 +26,7 @@ tasks:
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
-      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 -e HF_TOKEN={{.HF_TOKEN}} {{.IMAGE}}
+      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e HF_TOKEN={{.HF_TOKEN}} {{.IMAGE}}
       - cmd /c docker ps --filter "name={{.CONTAINER}}"
 
   localrun:
@@ -33,7 +34,7 @@ tasks:
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
-      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e PORT=7860 -e UVICORN_RELOAD=1 -e HF_TOKEN={{.HF_TOKEN}} -v "{{.TASKFILE_DIR}}\kokorotts:/app/kokorotts" {{.IMAGE}}
+      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e UVICORN_RELOAD=1 -e HF_TOKEN={{.HF_TOKEN}} -v "{{.TASKFILE_DIR}}\kokorotts:/app/kokorotts" {{.IMAGE}}
       - cmd /c docker ps --filter "name={{.CONTAINER_LOCAL}}"
 
   imageweb:
@@ -45,7 +46,7 @@ tasks:
     desc: Call API, play generated temp WAV, then remove it
     cmds:
       - 'cmd /c curl.exe -sS --retry 30 --retry-delay 2 --retry-connrefused http://localhost:{{.PORT}}/tts/ping >nul'
-      - 'cmd /c curl.exe -sS -X POST http://localhost:{{.PORT}}/tts/convert -H "Content-Type: application/json" -d "{\"text\":\"Hello world. This is Kokoro TTS.\",\"speed\":1.0,\"voice\":\"af_heart\",\"use_gpu\":true}" --output {{.TEMP_WAV}}'
+      - 'cmd /c curl.exe -sS -X POST http://localhost:{{.PORT}}/tts/convert -H "Content-Type: application/json" -d "{\"text\":\"Hello world. This is Kokoro TTS.\",\"speed\":1.0,\"voice\":\"af_heart\",\"device\":\"{{.APP_DEVICE}}\"}" --output {{.TEMP_WAV}}'
       - 'cmd /c if not exist {{.TEMP_WAV}} exit /b 1'
       - 'cmd /c python -c "import winsound; winsound.PlaySound(r''{{.TEMP_WAV}}'', winsound.SND_FILENAME)"'
       - 'cmd /c del /f /q {{.TEMP_WAV}}'
