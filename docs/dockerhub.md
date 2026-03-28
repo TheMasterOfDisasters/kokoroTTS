@@ -1,52 +1,41 @@
-# KokoroTTS - UI + API + Offline Support
+# 🗣️ KokoroTTS WebUI & API (Docker)
 
-This image is built for users who want a practical, self-hosted Kokoro deployment with both a Web UI and an HTTP API available immediately after `docker run`.
+This is an independently maintained Docker image for [KokoroTTS](https://github.com/TheMasterOfDisasters/kokoroTTS), based on the original [Kokoro](https://github.com/hexgrad/kokoro), with a focus on making it **easy to run, integrate, and use offline** without extra setup.
 
-- Docker Hub image: https://hub.docker.com/r/sensejworld/kokorotts
-- Fork project: https://github.com/TheMasterOfDisasters/kokoroTTS
-- Original upstream project: https://github.com/hexgrad/kokoro
-
-## Why choose this image variant
-
-- UI and API are served from one container, one port, out of the box.
-- API-first usage is ready immediately (`/tts/ping`, `/tts/convert`) while keeping an interactive UI at `/`.
-- GPU-aware runtime options are included (`auto`, `cpu`, `cuda:N`).
-- Image is prepared for offline serving after build by prefetching model + voice assets.
-
-Container serves both:
-- Gradio UI on `/`
+## ✅ Features
+- Web interface (Gradio) on `/`
 - HTTP API on `/tts/*`
+- UI and API served from one container, one port
+- Docker-ready for local or cloud use
+- GPU acceleration when available
+- Offline-ready image with prefetched model and voice assets
 
-Default port: `7860`
-
-## Quick Start
-
-CPU:
+## 🚀 Quick Start
+**CPU:**
 ```bash
 docker run -p 7860:7860 sensejworld/kokorotts:latest
 ```
 
-NVIDIA GPU (all visible GPUs):
+**NVIDIA GPU:**
 ```bash
 docker run -p 7860:7860 --gpus all sensejworld/kokorotts:latest
 ```
 
-Single GPU by index (example host GPU 1):
+**Specific GPU (example: GPU index `1`):**
 ```bash
 docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 sensejworld/kokorotts:latest
 ```
 
-Open UI:
-- `http://localhost:7860`
+Visit: [http://localhost:7860](http://localhost:7860) for the UI.  
+*(First synthesis may take a little longer while the model and device warm up.)*
 
-## API Examples
-
-Ping:
+### 📡 API Usage Examples
+**Ping:**
 ```bash
 curl -sS http://localhost:7860/tts/ping
 ```
 
-Generate WAV (auto device):
+**Simple:**
 ```bash
 curl -X POST "http://localhost:7860/tts/convert" \
   -H "Content-Type: application/json" \
@@ -54,7 +43,7 @@ curl -X POST "http://localhost:7860/tts/convert" \
   --output hello.wav
 ```
 
-Force CPU:
+**Force CPU:**
 ```bash
 curl -X POST "http://localhost:7860/tts/convert" \
   -H "Content-Type: application/json" \
@@ -62,21 +51,53 @@ curl -X POST "http://localhost:7860/tts/convert" \
   --output cpu.wav
 ```
 
-## Runtime Environment Variables
-
+## ⚙️ Runtime Environment Variables
 - `KOKORO_REPO_ID` (default: `hexgrad/Kokoro-82M`)
 - `KOKOROTTS_DEVICE` (default: `auto`; options: `auto`, `cpu`, `cuda:0`, `cuda:1`, ...)
 - `CUDA_VISIBLE_DEVICES` (Docker/NVIDIA visibility control)
 - `HF_TOKEN` (optional, for higher Hugging Face rate limits)
 - `PORT` (default: `7860`)
 
-## Offline Behavior
+## 🌐 Offline Support
+The image prefetches model files, configuration, and UI voice assets during the Docker build.
 
-During Docker build, the image prefetches model/config + UI voice packs into the Hugging Face cache inside the image.
-At runtime, `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are enabled, so a pulled/built image can run on a machine with no internet access.
+At runtime, offline flags are enabled:
+- `HF_HUB_OFFLINE=1`
+- `TRANSFORMERS_OFFLINE=1`
 
-## Notes
+This means a pulled or prebuilt image can run on a machine without internet access.
 
-- First request can still take longer due to initial model/device warm-up.
-- API endpoint currently returns WAV stream from `/tts/convert`.
-- Recommended image tag: `sensejworld/kokorotts:latest`.
+## 🆘 Support & Issues
+If you encounter a bug, have a feature request, or want to contribute:
+- 📄 Open a **[GitHub Issue](https://github.com/TheMasterOfDisasters/kokoroTTS/issues)** with full details
+- 💬 Use the project repository for discussion and improvement ideas
+- 🛠 Check existing issues before reporting duplicates
+
+I respond fastest on GitHub — Docker Hub comments aren’t monitored regularly.
+
+### 🔗 Common Help Topics
+- **[Fork Project](https://github.com/TheMasterOfDisasters/kokoroTTS)**
+- **[Original Kokoro Project](https://github.com/hexgrad/kokoro)**
+- **[Docker Hub Tags](https://hub.docker.com/r/sensejworld/kokorotts/tags)**
+
+## 📦 Notes
+- The container serves both the Gradio UI and HTTP API from the same port.
+- Default UI path: `/`
+- API base path: `/tts/*`
+- The `/tts/convert` endpoint currently returns a WAV stream.
+- Recommended image tag: `sensejworld/kokorotts:latest`
+
+## Releases
+
+### v0.0.1
+- Initial release of the KokoroTTS Docker image.
+- Trimmed the image to keep it slim and practical for deployment.
+- Baked required models and assets into the image for offline use.
+- Added startup/runtime details showing which specific GPU is detected.
+- Introduced Dockerized WebUI + API setup for easy local or server deployment.
+- Added integration-friendly API support for compatibility with the MeloTTS image, making it easier to swap between them in existing applications.
+- Enabled automated build and deployment workflow.
+
+## 📜 License
+This fork is licensed under the Apache License 2.0.  
+Original work by [hexgrad](https://github.com/hexgrad) in [Kokoro](https://github.com/hexgrad/kokoro).

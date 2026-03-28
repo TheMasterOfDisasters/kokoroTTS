@@ -11,7 +11,14 @@ This repository is a focused fork of the upstream project:
 
 ## Release
 
-Current release version: `0.0.1`
+### v0.0.1
+- Initial release of the KokoroTTS Docker image.
+- Trimmed the image to keep it slim and practical for deployment.
+- Baked required models and assets into the image for offline use.
+- Added startup/runtime details showing which specific GPU is detected.
+- Introduced Dockerized WebUI + API setup for easy local or server deployment.
+- Added integration-friendly API support for compatibility with the MeloTTS image, making it easier to swap between them in existing applications.
+- Enabled automated build and deployment workflow.
 
 ## Quick Start (Docker)
 
@@ -93,3 +100,8 @@ task logs
 - `Dockerfile`: production image build/run definition.
 - `Taskfile.yml`: local build/run/debug automation.
 - `docs/dockerhub.md`: Docker Hub description copy.
+
+
+## 📜 License
+This fork is licensed under the Apache License 2.0.  
+Original work by [hexgrad](https://github.com/hexgrad) in [Kokoro](https://github.com/hexgrad/kokoro).
