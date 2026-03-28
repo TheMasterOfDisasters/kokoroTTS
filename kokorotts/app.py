@@ -22,7 +22,6 @@ APP_VERSION = os.getenv("APP_VERSION", KOKORO_VERSION)
 BUILD_ID = os.getenv("BUILD_ID", "dev")
 DEFAULT_DEVICE = os.getenv("KOKOROTTS_DEVICE", "auto")
 DATA_DIR = Path(__file__).resolve().parent
-CUDA_AVAILABLE = torch.cuda.is_available()
 MODEL_CACHE = {}
 pipelines = {
     lang_code: KPipeline(lang_code=lang_code, repo_id=DEFAULT_REPO_ID, model=False)
@@ -32,28 +31,34 @@ pipelines["a"].g2p.lexicon.golds["kokoro"] = "kˈOkəɹO"
 pipelines["b"].g2p.lexicon.golds["kokoro"] = "kˈQkəɹQ"
 
 
+def get_cuda_devices() -> list[str]:
+    if not torch.cuda.is_available():
+        return []
+    return [torch.cuda.get_device_name(idx) for idx in range(torch.cuda.device_count())]
+
+
 def get_runtime_label() -> str:
-    if CUDA_AVAILABLE:
+    cuda_devices = get_cuda_devices()
+    if cuda_devices:
         visible = os.getenv("CUDA_VISIBLE_DEVICES", "all")
-        return f"GPU x{torch.cuda.device_count()} (visible={visible})"
+        device_list = ", ".join(f"{idx}:{name}" for idx, name in enumerate(cuda_devices))
+        return f"GPU x{len(cuda_devices)} (visible={visible}) [{device_list}]"
     return "CPU"
 
 
 def get_hardware_choices():
     choices = [("Auto", "auto"), ("CPU 🐌", "cpu")]
-    if CUDA_AVAILABLE:
-        for idx in range(torch.cuda.device_count()):
-            name = torch.cuda.get_device_name(idx)
-            choices.append((f"GPU {idx} 🚀 ({name})", f"cuda:{idx}"))
+    for idx, name in enumerate(get_cuda_devices()):
+        choices.append((f"GPU {idx} 🚀 ({name})", f"cuda:{idx}"))
     return choices
 
 
 def normalize_device(hardware: str) -> str:
     if hardware == "auto":
-        return "cuda:0" if CUDA_AVAILABLE else "cpu"
+        return "cuda:0" if get_cuda_devices() else "cpu"
     if hardware == "gpu":
         return "cuda:0"
-    if hardware.startswith("cuda") and not CUDA_AVAILABLE:
+    if hardware.startswith("cuda") and not get_cuda_devices():
         raise RuntimeError("CUDA device requested but CUDA is not available")
     return hardware
 

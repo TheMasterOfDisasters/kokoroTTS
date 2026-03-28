@@ -1,4 +1,4 @@
-# KokoroTTS (Docker) - UI + API Ready
+# KokoroTTS - UI + API + Offline Support
 
 This image is built for users who want a practical, self-hosted Kokoro deployment with both a Web UI and an HTTP API available immediately after `docker run`.
 
