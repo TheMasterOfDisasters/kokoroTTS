@@ -19,7 +19,7 @@ from kokorotts import KModel, KPipeline
 SAMPLE_RATE = 24000
 DEFAULT_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
 APP_VERSION = os.getenv("APP_VERSION", KOKORO_VERSION)
-BUILD_ID = os.getenv("BUILD_ID", "dev")
+BUILD_ID = os.getenv("BUILD_ID", "stable")
 DEFAULT_DEVICE = os.getenv("KOKOROTTS_DEVICE", "auto")
 DATA_DIR = Path(__file__).resolve().parent
 MODEL_CACHE = {}
