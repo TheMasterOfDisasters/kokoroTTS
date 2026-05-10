@@ -62,7 +62,7 @@ tasks:
   logs:
     desc: Show logs from active KokoroTTS container
     cmds:
-      - cmd /c docker logs --tail 200 {{.CONTAINER}}
+      - cmd /c docker logs --tail 200 {{.CONTAINER_LOCAL}} 2>nul || docker logs --tail 200 {{.CONTAINER}}
 
   nuke:
     desc: Remove KokoroTTS local containers and image
