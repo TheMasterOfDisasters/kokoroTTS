@@ -19,6 +19,13 @@ This repository is a focused fork of the upstream project:
 - Added multilingual Docker prefetch support, including UniDic for offline Japanese synthesis.
 - Added `task imageapi-voice` for quick audible smoke tests with specific voices.
 
+Expected Docker tags:
+
+```bash
+docker run -p 7860:7860 --gpus all sensejworld/kokorotts:v0.2
+docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 sensejworld/kokorotts:v0.2
+```
+
 ### v0.0.1
 - Initial release of the KokoroTTS Docker image.
 - Trimmed the image to keep it slim and practical for deployment.
@@ -83,6 +90,13 @@ Hot-swap local app code into container (no rebuild loop):
 ```bash
 task localrun
 task logs
+```
+
+Release from a clean tree:
+
+```bash
+task release DRY_RUN=1
+task release
 ```
 
 ## Runtime Environment Variables

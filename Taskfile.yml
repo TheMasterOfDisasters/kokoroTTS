@@ -11,6 +11,9 @@ vars:
   TEMP_WAV: '%TEMP%\\kokorotts_task.wav'
   API_TEXT: 'Hello world. This is Kokoro TTS.'
   API_VOICE: 'af_heart'
+  DRY_RUN: '0'
+  NEXT_VERSION: ''
+  SKIP_VALIDATION: '0'
 
 tasks:
   gpuinfo:
@@ -22,6 +25,11 @@ tasks:
     desc: Build local KokoroTTS Docker image
     cmds:
       - cmd /c docker build -t {{.IMAGE}} .
+
+  release:
+    desc: Release current VERSION snapshot, tag it, and prepare next snapshot
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -DryRun "{{.DRY_RUN}}" -NextVersion "{{.NEXT_VERSION}}" -SkipValidation "{{.SKIP_VALIDATION}}"
 
   imagerun:
     desc: Run image with UI and API on PORT (default GPU_DEVICE=0)

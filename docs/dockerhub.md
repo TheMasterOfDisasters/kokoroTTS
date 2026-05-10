@@ -14,17 +14,17 @@ This is an independently maintained Docker image for [KokoroTTS](https://github.
 ## 🚀 Quick Start
 **CPU:**
 ```bash
-docker run -p 7860:7860 sensejworld/kokorotts:latest
+docker run -p 7860:7860 sensejworld/kokorotts:v0.2
 ```
 
 **NVIDIA GPU:**
 ```bash
-docker run -p 7860:7860 --gpus all sensejworld/kokorotts:latest
+docker run -p 7860:7860 --gpus all sensejworld/kokorotts:v0.2
 ```
 
 **Specific GPU (example: GPU index `1`):**
 ```bash
-docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 sensejworld/kokorotts:latest
+docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 sensejworld/kokorotts:v0.2
 ```
 
 Visit: [http://localhost:7860](http://localhost:7860) for the UI.  
@@ -89,7 +89,7 @@ I respond fastest on GitHub — Docker Hub comments aren’t monitored regularly
 - Default UI path: `/`
 - API base path: `/tts/*`
 - The `/tts/convert` endpoint currently returns a WAV stream.
-- Recommended image tag: `sensejworld/kokorotts:latest`
+- Recommended image tag: `sensejworld/kokorotts:v0.2`
 
 ## Releases
 
@@ -99,6 +99,13 @@ I respond fastest on GitHub — Docker Hub comments aren’t monitored regularly
 - Exposed the full Kokoro-82M voice set in the UI/API.
 - Added multilingual Docker prefetch support, including UniDic for offline Japanese synthesis.
 - Added `task imageapi-voice` for quick audible smoke tests with specific voices.
+
+Expected Docker tags:
+
+```bash
+docker run -p 7860:7860 --gpus all sensejworld/kokorotts:v0.2
+docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 sensejworld/kokorotts:v0.2
+```
 
 ### v0.0.1
 - Initial release of the KokoroTTS Docker image.
