@@ -9,6 +9,7 @@ This is an independently maintained Docker image for [KokoroTTS](https://github.
 - Docker-ready for local or cloud use
 - GPU acceleration when available
 - Offline-ready image with prefetched model and voice assets
+- Full Kokoro-82M voice set exposed in the UI/API
 
 ## 🚀 Quick Start
 **CPU:**
@@ -58,6 +59,9 @@ curl -X POST "http://localhost:7860/tts/convert" \
 - `HF_TOKEN` (optional, for higher Hugging Face rate limits)
 - `PORT` (default: `7860`)
 
+## 🗣️ Voices and Languages
+The image exposes 54 bundled voices across American English, British English, Japanese, Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese.
+
 ## 🌐 Offline Support
 The image prefetches model files, configuration, and UI voice assets during the Docker build.
 
@@ -88,6 +92,13 @@ I respond fastest on GitHub — Docker Hub comments aren’t monitored regularly
 - Recommended image tag: `sensejworld/kokorotts:latest`
 
 ## Releases
+
+### v0.2-snapshot
+- Added a root `VERSION` file for the app/runtime release label.
+- Kept Python package metadata on a PEP 440-compatible development version for reliable builds.
+- Exposed the full Kokoro-82M voice set in the UI/API.
+- Added multilingual Docker prefetch support, including UniDic for offline Japanese synthesis.
+- Added `task imageapi-voice` for quick audible smoke tests with specific voices.
 
 ### v0.0.1
 - Initial release of the KokoroTTS Docker image.

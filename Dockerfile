@@ -12,13 +12,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential espeak-ng ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md LICENSE /app/
+COPY pyproject.toml README.md LICENSE VERSION /app/
 COPY kokorotts /app/kokorotts
 
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install -e . \
     && python -m pip install -r /app/kokorotts/requirements.txt \
     && python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl \
+    && python -m unidic download \
     && python -u /app/kokorotts/prefetch_assets.py
 
 FROM python:3.11-slim

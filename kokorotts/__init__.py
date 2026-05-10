@@ -1,6 +1,17 @@
 """KokoroTTS application package (UI + API)."""
 
-__version__ = "0.0.1"
+from pathlib import Path
+
+
+def _read_version() -> str:
+    version_file = Path(__file__).resolve().parent.parent / "VERSION"
+    try:
+        return version_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "0.2-snapshot"
+
+
+__version__ = _read_version()
 
 from loguru import logger
 import sys

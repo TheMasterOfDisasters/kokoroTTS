@@ -2,6 +2,8 @@
 
 Python UI + API application for Kokoro TTS.
 
+The app exposes the bundled Kokoro-82M voice set across American English, British English, Japanese, Mandarin, Spanish, French, Hindi, Italian, and Brazilian Portuguese.
+
 ## Run without Docker
 
 ```bash

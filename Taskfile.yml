@@ -9,6 +9,8 @@ vars:
   CONTAINER: kokorotts
   CONTAINER_LOCAL: kokorotts_local
   TEMP_WAV: '%TEMP%\\kokorotts_task.wav'
+  API_TEXT: 'Hello world. This is Kokoro TTS.'
+  API_VOICE: 'af_heart'
 
 tasks:
   gpuinfo:
@@ -47,6 +49,15 @@ tasks:
     cmds:
       - 'cmd /c curl.exe -sS --retry 30 --retry-delay 2 --retry-connrefused http://localhost:{{.PORT}}/tts/ping >nul'
       - 'cmd /c curl.exe -sS -X POST http://localhost:{{.PORT}}/tts/convert -H "Content-Type: application/json" -d "{\"text\":\"Hello world. This is Kokoro TTS.\",\"speed\":1.0,\"voice\":\"af_heart\",\"device\":\"{{.APP_DEVICE}}\"}" --output {{.TEMP_WAV}}'
+      - 'cmd /c if not exist {{.TEMP_WAV}} exit /b 1'
+      - 'cmd /c python -c "import winsound; winsound.PlaySound(r''{{.TEMP_WAV}}'', winsound.SND_FILENAME)"'
+      - 'cmd /c del /f /q {{.TEMP_WAV}}'
+
+  imageapi-voice:
+    desc: Call API for API_VOICE/API_TEXT, play generated temp WAV, then remove it
+    cmds:
+      - 'cmd /c curl.exe -sS --retry 30 --retry-delay 2 --retry-connrefused http://localhost:{{.PORT}}/tts/ping >nul'
+      - 'cmd /c curl.exe -sS -X POST http://localhost:{{.PORT}}/tts/convert -H "Content-Type: application/json" -d "{\"text\":\"{{.API_TEXT}}\",\"speed\":1.0,\"voice\":\"{{.API_VOICE}}\",\"device\":\"{{.APP_DEVICE}}\"}" --output {{.TEMP_WAV}}'
       - 'cmd /c if not exist {{.TEMP_WAV}} exit /b 1'
       - 'cmd /c python -c "import winsound; winsound.PlaySound(r''{{.TEMP_WAV}}'', winsound.SND_FILENAME)"'
       - 'cmd /c del /f /q {{.TEMP_WAV}}'

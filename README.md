@@ -4,12 +4,20 @@
 - Gradio UI on `/`
 - HTTP API on `/tts/*`
 - One container, one port (`7860`)
+- 54 voices across American English, British English, Japanese, Mandarin, Spanish, French, Hindi, Italian, and Brazilian Portuguese
 
 This repository is a focused fork of the upstream project:
 - This repo: https://github.com/TheMasterOfDisasters/kokoroTTS
 - Upstream model/library: https://github.com/hexgrad/kokoro
 
 ## Release
+
+### v0.2-snapshot
+- Added a root `VERSION` file for the app/runtime release label.
+- Kept Python package metadata on a PEP 440-compatible development version for reliable builds.
+- Exposed the full Kokoro-82M voice set in the UI/API.
+- Added multilingual Docker prefetch support, including UniDic for offline Japanese synthesis.
+- Added `task imageapi-voice` for quick audible smoke tests with specific voices.
 
 ### v0.0.1
 - Initial release of the KokoroTTS Docker image.
@@ -85,6 +93,20 @@ task logs
 - `HF_TOKEN` (optional, for higher HF Hub limits)
 - `PORT` (default: `7860`)
 - `UVICORN_RELOAD` (`1` for auto-reload in hot-swap mode)
+
+## Voices and Languages
+
+The UI voice dropdown exposes all currently bundled Kokoro-82M voices:
+
+- American English (`a*`)
+- British English (`b*`)
+- Japanese (`j*`)
+- Mandarin Chinese (`z*`)
+- Spanish (`e*`)
+- French (`f*`)
+- Hindi (`h*`)
+- Italian (`i*`)
+- Brazilian Portuguese (`p*`)
 
 ## Offline Behavior
 

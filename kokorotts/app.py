@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from kokorotts import __version__ as KOKORO_VERSION
 from kokorotts import KModel, KPipeline
+from kokorotts.voices import LANGUAGE_CHOICES, VOICE_CHOICES
 
 SAMPLE_RATE = 24000
 DEFAULT_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
@@ -25,7 +26,7 @@ DATA_DIR = Path(__file__).resolve().parent
 MODEL_CACHE = {}
 pipelines = {
     lang_code: KPipeline(lang_code=lang_code, repo_id=DEFAULT_REPO_ID, model=False)
-    for lang_code in "ab"
+    for lang_code in LANGUAGE_CHOICES
 }
 pipelines["a"].g2p.lexicon.golds["kokoro"] = "kˈOkəɹO"
 pipelines["b"].g2p.lexicon.golds["kokoro"] = "kˈQkəɹQ"
@@ -194,37 +195,7 @@ def get_frankenstein():
     return (DATA_DIR / "frankenstein5k.md").read_text(encoding="utf-8").strip()
 
 
-CHOICES = {
-    "🇺🇸 🚺 Heart ❤️": "af_heart",
-    "🇺🇸 🚺 Bella 🔥": "af_bella",
-    "🇺🇸 🚺 Nicole 🎧": "af_nicole",
-    "🇺🇸 🚺 Aoede": "af_aoede",
-    "🇺🇸 🚺 Kore": "af_kore",
-    "🇺🇸 🚺 Sarah": "af_sarah",
-    "🇺🇸 🚺 Nova": "af_nova",
-    "🇺🇸 🚺 Sky": "af_sky",
-    "🇺🇸 🚺 Alloy": "af_alloy",
-    "🇺🇸 🚺 Jessica": "af_jessica",
-    "🇺🇸 🚺 River": "af_river",
-    "🇺🇸 🚹 Michael": "am_michael",
-    "🇺🇸 🚹 Fenrir": "am_fenrir",
-    "🇺🇸 🚹 Puck": "am_puck",
-    "🇺🇸 🚹 Echo": "am_echo",
-    "🇺🇸 🚹 Eric": "am_eric",
-    "🇺🇸 🚹 Liam": "am_liam",
-    "🇺🇸 🚹 Onyx": "am_onyx",
-    "🇺🇸 🚹 Santa": "am_santa",
-    "🇺🇸 🚹 Adam": "am_adam",
-    "🇬🇧 🚺 Emma": "bf_emma",
-    "🇬🇧 🚺 Isabella": "bf_isabella",
-    "🇬🇧 🚺 Alice": "bf_alice",
-    "🇬🇧 🚺 Lily": "bf_lily",
-    "🇬🇧 🚹 George": "bm_george",
-    "🇬🇧 🚹 Fable": "bm_fable",
-    "🇬🇧 🚹 Lewis": "bm_lewis",
-    "🇬🇧 🚹 Daniel": "bm_daniel",
-}
-for voice_id in CHOICES.values():
+for voice_id in VOICE_CHOICES.values():
     pipelines[voice_id[0]].load_voice(voice_id)
 
 TOKEN_NOTE = """
@@ -291,7 +262,7 @@ with gr.Blocks(title="KokoroTTS") as ui:
             text = gr.Textbox(label="Input Text", info="Arbitrarily many characters supported")
             with gr.Row():
                 voice = gr.Dropdown(
-                    choices=list(CHOICES.items()),
+                    choices=list(VOICE_CHOICES.items()),
                     value="af_heart",
                     label="Voice",
                     info="Quality and availability vary by language",
