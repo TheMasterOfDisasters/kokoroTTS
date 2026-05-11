@@ -17,6 +17,7 @@ This repository is a focused fork of the upstream project:
 - Kept Python package metadata on a PEP 440-compatible development version for reliable builds.
 - Exposed the full Kokoro-82M voice set in the UI/API.
 - Added optional `wav`, `mp3`, `flac`, and `ogg` output formats in the UI/API while keeping WAV as the default.
+- Added language-aware UI sample texts with 10 lighthearted prompts per served language prefix.
 - Added multilingual Docker prefetch support, including UniDic for offline Japanese synthesis.
 - Added `task imageapi-voice` for quick audible smoke tests with specific voices.
 

@@ -1,6 +1,5 @@
 import io
 import os
-import random
 import subprocess
 import tempfile
 import wave
@@ -17,6 +16,12 @@ from pydantic import BaseModel, Field
 
 from kokorotts import __version__ as KOKORO_VERSION
 from kokorotts import KModel, KPipeline
+from kokorotts.sample_texts import (
+    get_initial_text,
+    get_language_group_for_voice,
+    get_random_quote,
+    refresh_text_for_language_change,
+)
 from kokorotts.voices import LANGUAGE_CHOICES, VOICE_CHOICES
 
 SAMPLE_RATE = 24000
@@ -273,12 +278,6 @@ def to_int16_audio(audio: np.ndarray) -> np.ndarray:
     return (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
 
 
-def get_random_quote():
-    with (DATA_DIR / "en.txt").open("r", encoding="utf-8") as file:
-        lines = [line.strip() for line in file if line.strip()]
-    return random.choice(lines)
-
-
 def get_gatsby():
     return (DATA_DIR / "gatsby5k.md").read_text(encoding="utf-8").strip()
 
@@ -349,9 +348,14 @@ default_hardware = DEFAULT_DEVICE if DEFAULT_DEVICE in hardware_values else "aut
 with gr.Blocks(title="KokoroTTS") as ui:
     gr.HTML(f"<style>{BADGE_CSS}</style>")
     gr.HTML(f"<div id='build-badge'>Version: {APP_VERSION} | Build: {BUILD_ID}<br>{get_runtime_label()}</div>")
+    voice_language_state = gr.State(get_language_group_for_voice("af_heart"))
     with gr.Row():
         with gr.Column():
-            text = gr.Textbox(label="Input Text", info="Arbitrarily many characters supported")
+            text = gr.Textbox(
+                label="Input Text",
+                info="Arbitrarily many characters supported",
+                value=get_initial_text(),
+            )
             with gr.Row():
                 voice = gr.Dropdown(
                     choices=list(VOICE_CHOICES.items()),
@@ -381,7 +385,8 @@ with gr.Blocks(title="KokoroTTS") as ui:
         with gr.Column():
             gr.TabbedInterface([generate_tab, stream_tab], ["Generate", "Stream"])
 
-    random_btn.click(fn=get_random_quote, inputs=[], outputs=[text])
+    random_btn.click(fn=get_random_quote, inputs=[voice], outputs=[text])
+    voice.change(fn=refresh_text_for_language_change, inputs=[voice, voice_language_state], outputs=[text, voice_language_state])
     gatsby_btn.click(fn=get_gatsby, inputs=[], outputs=[text])
     frankenstein_btn.click(fn=get_frankenstein, inputs=[], outputs=[text])
     generate_btn.click(fn=synthesize_file, inputs=[text, voice, speed, hardware, output_format], outputs=[out_audio, out_ps])
