@@ -87,7 +87,7 @@ Use another voice:
 ```bash
 curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
-  -d '{"text":"ココロ テキスト読み上げへようこそ。","voice":"jf_alpha","output_format":"mp3"}' \
+  -d '{"text":"ã‚³ã‚³ãƒ­ ãƒ†ã‚­ã‚¹ãƒˆèª­ã¿ä¸Šã’ã¸ã‚ˆã†ã“ãã€‚","voice":"jf_alpha","output_format":"mp3"}' \
   -o kokoro-ja.mp3
 ```
 
