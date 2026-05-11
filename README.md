@@ -255,6 +255,7 @@ task release
 - Added a dependency-free Python HTTP client for using KokoroTTS endpoints from application code.
 - Added `task client-test` for server-backed Python client coverage across discovery, generation, conversion, streaming, and validation paths.
 - Added optional UI/API audio controls for pitch, tempo, volume, and loudness normalization with neutral defaults for backward compatibility.
+- Improved the UI Stream tab so Stop cancels active streams cooperatively and starting a new stream clears stale audio before using the latest text.
 - Updated Docker publish workflow support for `vX.Y` tags, explicit `hangrylabs/kokorotts` publishing, and manual release dispatch with a selected checkout ref.
 - Removed unnecessary caution callouts from public docs and the Stream tab for a cleaner product-facing experience.
 

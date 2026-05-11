@@ -2,6 +2,7 @@ import io
 import os
 import subprocess
 import tempfile
+import threading
 import wave
 from typing import Optional
 
@@ -83,6 +84,8 @@ APP_VERSION = os.getenv("APP_VERSION", KOKORO_VERSION)
 BUILD_ID = os.getenv("BUILD_ID", "stable")
 DEFAULT_DEVICE = os.getenv("KOKOROTTS_DEVICE", "auto")
 MODEL_CACHE = {}
+STREAM_LOCK = threading.Lock()
+STREAM_GENERATION = 0
 pipelines = {
     lang_code: KPipeline(lang_code=lang_code, repo_id=DEFAULT_REPO_ID, model=False)
     for lang_code in LANGUAGE_CHOICES
@@ -142,6 +145,23 @@ def get_model(device: str) -> KModel:
     if device not in MODEL_CACHE:
         MODEL_CACHE[device] = KModel(repo_id=DEFAULT_REPO_ID).to(device).eval()
     return MODEL_CACHE[device]
+
+
+def next_stream_generation() -> int:
+    global STREAM_GENERATION
+    with STREAM_LOCK:
+        STREAM_GENERATION += 1
+        return STREAM_GENERATION
+
+
+def is_current_stream_generation(stream_generation: int) -> bool:
+    with STREAM_LOCK:
+        return stream_generation == STREAM_GENERATION
+
+
+def stop_active_stream():
+    next_stream_generation()
+    return SAMPLE_RATE, np.zeros(1, dtype=np.int16)
 
 
 def synthesize_full(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Optional[bool] = None):
@@ -220,14 +240,19 @@ def generate_all(
     normalize=False,
     use_gpu: Optional[bool] = None,
 ):
+    if not (text or "").strip():
+        raise gr.Error("Text must not be empty")
+    stream_generation = next_stream_generation()
+    yield SAMPLE_RATE, np.zeros(1, dtype=np.int16)
     pipeline = pipelines[voice[0]]
     pack = pipeline.load_voice(voice)
     if use_gpu is not None:
         hardware = "auto" if use_gpu else "cpu"
     resolved_device = normalize_device(hardware)
     model = get_model(resolved_device)
-    first = True
     for _, ps, _ in pipeline(text, voice, speed):
+        if not is_current_stream_generation(stream_generation):
+            return
         ref_s = pack[len(ps) - 1]
         try:
             audio = model(ps, ref_s, speed)
@@ -246,10 +271,9 @@ def generate_all(
             volume,
             normalize,
         )
+        if not is_current_stream_generation(stream_generation):
+            return
         yield SAMPLE_RATE, processed_audio
-        if first:
-            first = False
-            yield SAMPLE_RATE, np.zeros(1, dtype=np.int16)
 
 
 def audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> bytes:
@@ -675,12 +699,14 @@ with gr.Blocks(title="KokoroTTS") as ui:
         outputs=[out_audio, out_ps],
     )
     tokenize_btn.click(fn=tokenize_first, inputs=[text, voice], outputs=[out_ps])
+    stream_btn.click(fn=stop_active_stream, outputs=[out_stream], queue=False)
     stream_event = stream_btn.click(
         fn=generate_all,
         inputs=[text, voice, speed, hardware, pitch_semitones, tempo, volume, normalize],
         outputs=[out_stream],
+        trigger_mode="always_last",
     )
-    stop_btn.click(fn=None, cancels=stream_event)
+    stop_btn.click(fn=stop_active_stream, outputs=[out_stream], cancels=[stream_event], queue=False)
     predict_btn.click(fn=predict, inputs=[text, voice, speed], outputs=[out_audio])
 
 api = FastAPI(
