@@ -24,7 +24,9 @@ From repository root:
 ```bash
 task deps
 task image
+task image-tiny
 task imagerun
+task imagerun-tiny
 task imageweb
 task imageapi
 ```
@@ -35,11 +37,13 @@ For hot-swapping local app files into the running container:
 
 ```bash
 task localrun
+task localrun-tiny
 task logs
 task client-test
 ```
 
 `localrun` mounts the full local `kokorotts/` directory into `/app/kokorotts` and enables auto-reload via `UVICORN_RELOAD=1`.
+Both `imagerun` and `localrun` mount the named Docker volume `kokorotts_hf_cache` at `/app/.cache/huggingface`, so lazy-downloaded Hugging Face assets survive container and image rebuilds. Baked run tasks seed missing files from the full image into the volume before startup; tiny run tasks keep runtime/language dependencies but skip baked Hugging Face model/voice assets and run online on first use to warm the same cache. `task nuke` removes that volume for true from-scratch tests.
 
 Optional runtime env vars:
 
@@ -51,8 +55,9 @@ Optional runtime env vars:
 
 - Default repo is `hexgrad/Kokoro-82M`.
 - For this repo, `kokorotts/model.py` resolves weights to `kokoro-v1_0.pth` (Kokoro v1.0).
-- Docker build runs `kokorotts/prefetch_assets.py` to cache model/config + UI voice packs into the image.
-- Runtime sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`, so serving works without internet.
+- Default baked Docker build runs `kokorotts/prefetch_assets.py` to cache model/config + UI voice packs into the image.
+- Default baked runtime sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`, so serving works without internet.
+- Tiny Docker build target keeps runtime/language dependencies but does not bake Hugging Face model/voice assets. Start it with `task imagerun-tiny` or `task localrun-tiny` while online to populate the persistent cache volume.
 
 API payload also supports explicit hardware selection with `device` (and keeps legacy `use_gpu` for compatibility).
 

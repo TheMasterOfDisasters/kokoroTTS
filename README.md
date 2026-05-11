@@ -200,7 +200,8 @@ If you encounter bugs, have feature requests, or need help using Hangry Labs Kok
 
 ## Docker Features
 
-- Prefetched Kokoro model, config, voice assets, and Japanese UniDic data
+- Default full image with prefetched Kokoro model, config, voice assets, and Japanese UniDic data
+- Optional tiny image tag that skips baked Hugging Face model/voice assets and warms a persistent cache volume on first run
 - GPU acceleration when available
 - HTTP API + web UI in one container
 - Offline-friendly runtime flags
@@ -214,11 +215,12 @@ You can explore all available Hangry Labs KokoroTTS container images on [Docker 
 
 This is useful if you want to:
 - Select a specific version of KokoroTTS for compatibility
-- Check the latest available builds before pulling
+- Check available versioned builds before pulling
 - Verify image tags for deployment
 
 Current tag pattern:
 - Full image: `v0.2`, future versions as `vX.Y`
+- Tiny image: `v0.2_tiny`, future versions as `vX.Y_tiny`
 
 ---
 
@@ -226,18 +228,25 @@ Current tag pattern:
 
 ```bash
 task image
+task image-tiny
 task imagerun
+task imagerun-tiny
 task imageweb
 task imageapi
 ```
+
+The default image is the full baked image and keeps model, voice, and required language assets inside the container for offline use. The tiny image keeps required runtime/language dependencies but skips baked Hugging Face model/voice assets and uses the persistent `/app/.cache/huggingface` Docker volume instead; run it online once to warm the cache, then reuse the same volume across rebuilt containers.
 
 Hot-swap local app code into the container without rebuilding:
 
 ```bash
 task localrun
+task localrun-tiny
 task logs
 task client-test
 ```
+
+`task imagerun` and `task localrun` mount a named Docker volume at `/app/.cache/huggingface` so lazy-downloaded Hugging Face assets survive container and image rebuilds. Baked run tasks seed missing cache files from the full image before startup, so the normal image stays offline-friendly even if the cache volume was first created by a tiny run. Use `task nuke` when you need a true from-scratch cache test.
 
 Release from a clean tree:
 
@@ -256,7 +265,9 @@ task release
 - Added `task client-test` for server-backed Python client coverage across discovery, generation, conversion, streaming, and validation paths.
 - Added optional UI/API audio controls for pitch, tempo, volume, and loudness normalization with neutral defaults for backward compatibility.
 - Improved the UI Stream tab so Stop cancels active streams cooperatively and starting a new stream clears stale audio before using the latest text.
-- Updated Docker publish workflow support for `vX.Y` tags, explicit `hangrylabs/kokorotts` publishing, and manual release dispatch with a selected checkout ref.
+- Added a persistent Docker Hugging Face cache volume for task-run containers, with `task nuke` removing it for from-scratch validation.
+- Added a separate tiny Docker image target and task workflow for cache-volume-based model downloads while keeping the normal image fully baked for offline use.
+- Updated Docker publish workflows for separate full (`vX.Y`/`latest`) and tiny (`vX.Y_tiny`/`tiny`) image tracks, explicit `hangrylabs/kokorotts` publishing, and manual release dispatch with a selected checkout ref.
 - Removed unnecessary caution callouts from public docs and the Stream tab for a cleaner product-facing experience.
 
 ### v0.2

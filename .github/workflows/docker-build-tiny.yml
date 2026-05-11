@@ -1,4 +1,4 @@
-name: Build and Push Docker Image (FULL)
+name: Build and Push Docker Image (TINY)
 
 on:
   push:
@@ -18,7 +18,7 @@ on:
         required: false
         type: string
       push_latest:
-        description: "Also publish latest"
+        description: "Also publish tiny"
         required: false
         default: true
         type: boolean
@@ -65,19 +65,18 @@ jobs:
             echo "VERSION=${{ inputs.image_tag }}" >> $GITHUB_ENV
           fi
 
-      - name: Build baked Docker image
+      - name: Build tiny Docker image
         run: |
-          docker build --target baked -t $IMAGE_NAME:latest .
+          docker build --target tiny -t $IMAGE_NAME:tiny .
           if [[ -n "$VERSION" ]]; then
-            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$VERSION
+            docker tag $IMAGE_NAME:tiny $IMAGE_NAME:${VERSION}_tiny
           fi
 
-      - name: Push baked Docker image
+      - name: Push tiny Docker image
         run: |
           if [[ "${{ github.event_name }}" != "workflow_dispatch" || "${{ inputs.push_latest }}" == "true" ]]; then
-            docker push $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:tiny
           fi
           if [[ -n "$VERSION" ]]; then
-            docker push $IMAGE_NAME:$VERSION
+            docker push $IMAGE_NAME:${VERSION}_tiny
           fi
-

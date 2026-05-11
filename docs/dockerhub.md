@@ -27,6 +27,8 @@ The examples page includes MP3 previews for all 54 Kokoro voices across American
 
 ## Quick Start
 
+### Stable version:
+
 Run with NVIDIA GPU support:
 
 ```bash
@@ -45,6 +47,25 @@ Run on a specific GPU:
 docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 hangrylabs/kokorotts:v0.2
 ```
 
+Run the tiny image without baked model assets:
+
+```bash
+docker run -p 7860:7860 --gpus all -v kokorotts_hf_cache:/app/.cache/huggingface hangrylabs/kokorotts:v0.2_tiny
+```
+
+The tiny image is smaller, but it downloads model and voice files after startup and stores them in the Docker volume. If you just want KokoroTTS to work quickly, use one of the standard `v0.2` commands above.
+
+### Latest image:
+
+```bash
+docker run -p 7860:7860 --gpus all hangrylabs/kokorotts:latest
+docker run -p 7860:7860 hangrylabs/kokorotts:latest
+docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 hangrylabs/kokorotts:latest
+docker run -p 7860:7860 --gpus all -v kokorotts_hf_cache:/app/.cache/huggingface hangrylabs/kokorotts:tiny
+```
+
+Use the stable version tag when you want repeatable deployments. Use `latest` when you want the newest published full image, and `tiny` when you want the newest published tiny image.
+
 Then open:
 
 http://localhost:7860
@@ -60,7 +81,7 @@ The container includes the web UI and the HTTP API on the same port.
 - WAV, MP3, FLAC, and OGG output support
 - Full Kokoro-82M voice set exposed in the UI and API
 - GPU support when Docker/NVIDIA support is available
-- Offline-friendly usage once the image and baked model assets are available locally
+- Offline-friendly usage with the standard full image once it is available locally
 
 ## API Example
 
@@ -112,13 +133,19 @@ curl http://localhost:7860/tts/ping
 
 - Current release tag: `v0.2`
 - Future release tags use the same pattern: `vX.Y`
+- Tiny tags use the pattern `vX.Y_tiny`
 
 Example release tags:
 
 ```bash
 docker run -p 7860:7860 --gpus all hangrylabs/kokorotts:v0.2
 docker run -p 7860:7860 --gpus "device=1" -e CUDA_VISIBLE_DEVICES=1 hangrylabs/kokorotts:v0.2
+docker run -p 7860:7860 --gpus all -v kokorotts_hf_cache:/app/.cache/huggingface hangrylabs/kokorotts:v0.2_tiny
 ```
+
+The standard `vX.Y` image is the recommended image for most users. It includes Kokoro model, voices, and required language assets for offline-friendly use after the image is pulled.
+
+Tiny images use the `vX.Y_tiny` tag pattern. They keep runtime and language dependencies, but skip baked Hugging Face model and voice files. Use a persistent volume mounted at `/app/.cache/huggingface` so downloaded assets survive container replacement.
 
 ## Links
 

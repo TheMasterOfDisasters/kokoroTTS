@@ -2,10 +2,14 @@ version: '3'
 
 vars:
   IMAGE: kokorotts:test
+  TINY_IMAGE: kokorotts:tiny
   PORT: '7860'
   GPU_DEVICE: '0'
   APP_DEVICE: 'auto'
   HF_TOKEN: ''
+  HF_CACHE_VOLUME: kokorotts_hf_cache
+  HF_HUB_OFFLINE: '1'
+  TRANSFORMERS_OFFLINE: '1'
   CONTAINER: kokorotts
   CONTAINER_LOCAL: kokorotts_local
   TEMP_WAV: '%TEMP%\\kokorotts_task.wav'
@@ -24,9 +28,20 @@ tasks:
       - cmd /c nvidia-smi --query-gpu=index,name --format=csv,noheader
 
   image:
-    desc: Build local KokoroTTS Docker image
+    desc: Build local baked KokoroTTS Docker image
     cmds:
-      - cmd /c docker build -t {{.IMAGE}} .
+      - cmd /c docker build --target baked -t {{.IMAGE}} .
+
+  image-tiny:
+    desc: Build local tiny KokoroTTS Docker image without baked model/voice cache
+    cmds:
+      - cmd /c docker build --target tiny -t {{.TINY_IMAGE}} .
+
+  cache-init:
+    desc: Seed the persistent Hugging Face cache volume from the baked image
+    cmds:
+      - cmd /c docker volume create {{.HF_CACHE_VOLUME}} >nul
+      - cmd /c docker run --rm -v {{.HF_CACHE_VOLUME}}:/cache {{.IMAGE}} sh -c "mkdir -p /cache && cp -an /app/.cache/huggingface/. /cache/ || true"
 
   release:
     desc: Release current VERSION snapshot, tag it, and prepare next snapshot
@@ -39,19 +54,39 @@ tasks:
       - uv pip compile requirements.in --python-version 3.11 --python-platform x86_64-manylinux_2_36 --no-header --no-annotate --output-file requirements.txt
 
   imagerun:
-    desc: Run image with UI and API on PORT (default GPU_DEVICE=0)
+    desc: Run baked image with UI and API on PORT (default GPU_DEVICE=0)
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
-      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e HF_TOKEN={{.HF_TOKEN}} {{.IMAGE}}
+      - task: cache-init
+      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e HF_TOKEN={{.HF_TOKEN}} -e HF_HUB_OFFLINE={{.HF_HUB_OFFLINE}} -e TRANSFORMERS_OFFLINE={{.TRANSFORMERS_OFFLINE}} -v {{.HF_CACHE_VOLUME}}:/app/.cache/huggingface {{.IMAGE}}
+      - cmd /c docker ps --filter "name={{.CONTAINER}}"
+
+  imagerun-tiny:
+    desc: Run tiny image online on first use, using the persistent Hugging Face cache volume
+    cmds:
+      - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
+      - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
+      - cmd /c docker volume create {{.HF_CACHE_VOLUME}} >nul
+      - cmd /c docker run -d --name {{.CONTAINER}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e HF_TOKEN={{.HF_TOKEN}} -e HF_HUB_OFFLINE=0 -e TRANSFORMERS_OFFLINE=0 -v {{.HF_CACHE_VOLUME}}:/app/.cache/huggingface {{.TINY_IMAGE}}
       - cmd /c docker ps --filter "name={{.CONTAINER}}"
 
   localrun:
-    desc: Run image with local kokorotts/ bind-mounted for hot-swapping
+    desc: Run baked image with local kokorotts/ bind-mounted for hot-swapping
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
-      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e UVICORN_RELOAD=1 -e HF_TOKEN={{.HF_TOKEN}} -v "{{.TASKFILE_DIR}}\kokorotts:/app/kokorotts" {{.IMAGE}}
+      - task: cache-init
+      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e UVICORN_RELOAD=1 -e HF_TOKEN={{.HF_TOKEN}} -e HF_HUB_OFFLINE={{.HF_HUB_OFFLINE}} -e TRANSFORMERS_OFFLINE={{.TRANSFORMERS_OFFLINE}} -v {{.HF_CACHE_VOLUME}}:/app/.cache/huggingface -v "{{.TASKFILE_DIR}}\kokorotts:/app/kokorotts" {{.IMAGE}}
+      - cmd /c docker ps --filter "name={{.CONTAINER_LOCAL}}"
+
+  localrun-tiny:
+    desc: Run tiny image with local kokorotts/ bind-mounted, online on first use
+    cmds:
+      - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
+      - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
+      - cmd /c docker volume create {{.HF_CACHE_VOLUME}} >nul
+      - cmd /c docker run -d --name {{.CONTAINER_LOCAL}} -p {{.PORT}}:7860 --gpus all -e CUDA_VISIBLE_DEVICES={{.GPU_DEVICE}} -e KOKOROTTS_DEVICE={{.APP_DEVICE}} -e PORT=7860 -e UVICORN_RELOAD=1 -e HF_TOKEN={{.HF_TOKEN}} -e HF_HUB_OFFLINE=0 -e TRANSFORMERS_OFFLINE=0 -v {{.HF_CACHE_VOLUME}}:/app/.cache/huggingface -v "{{.TASKFILE_DIR}}\kokorotts:/app/kokorotts" {{.TINY_IMAGE}}
       - cmd /c docker ps --filter "name={{.CONTAINER_LOCAL}}"
 
   imageweb:
@@ -107,9 +142,11 @@ tasks:
       - cmd /c docker logs --tail 200 {{.CONTAINER_LOCAL}} 2>nul || docker logs --tail 200 {{.CONTAINER}}
 
   nuke:
-    desc: Remove KokoroTTS local containers and image
+    desc: Remove KokoroTTS local containers, image, and Hugging Face cache volume
     cmds:
       - cmd /c docker rm -f {{.CONTAINER}} >nul 2>&1
       - cmd /c docker rm -f {{.CONTAINER_LOCAL}} >nul 2>&1
       - cmd /c docker rmi -f {{.IMAGE}} >nul 2>&1
+      - cmd /c docker rmi -f {{.TINY_IMAGE}} >nul 2>&1
+      - cmd /c docker volume rm -f {{.HF_CACHE_VOLUME}} >nul 2>&1
 

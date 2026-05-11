@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -18,11 +18,17 @@ COPY kokorotts /app/kokorotts
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install -r /app/requirements.txt \
     && python -m pip install -e . --no-deps \
-    && python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl \
-    && python -m unidic download \
-    && python -u /app/kokorotts/prefetch_assets.py
+    && python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
-FROM python:3.11-slim
+FROM base AS language-builder
+
+RUN python -m unidic download
+
+FROM language-builder AS baked-builder
+
+RUN python -u /app/kokorotts/prefetch_assets.py
+
+FROM python:3.11-slim AS runtime-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -42,9 +48,19 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends espeak-ng ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/local /usr/local
-COPY --from=builder /app /app
-
 EXPOSE 7860
 
 CMD ["python", "-u", "kokorotts/app.py"]
+
+FROM runtime-base AS tiny
+
+ENV HF_HUB_OFFLINE=0 \
+    TRANSFORMERS_OFFLINE=0
+
+COPY --from=language-builder /usr/local /usr/local
+COPY --from=language-builder /app /app
+
+FROM runtime-base AS baked
+
+COPY --from=baked-builder /usr/local /usr/local
+COPY --from=baked-builder /app /app
