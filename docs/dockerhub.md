@@ -67,7 +67,7 @@ The container includes the web UI and the HTTP API on the same port.
 Default API behavior returns WAV for backward compatibility:
 
 ```bash
-curl -X POST "http://localhost:7860/tts/convert" \
+curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello from Hangry Labs KokoroTTS","voice":"af_heart"}' \
   -o hello.wav
@@ -76,7 +76,7 @@ curl -X POST "http://localhost:7860/tts/convert" \
 Request MP3 when you want compact output:
 
 ```bash
-curl -X POST "http://localhost:7860/tts/convert" \
+curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello from Hangry Labs KokoroTTS","voice":"af_heart","output_format":"mp3"}' \
   -o hello.mp3
@@ -85,11 +85,13 @@ curl -X POST "http://localhost:7860/tts/convert" \
 Use another voice:
 
 ```bash
-curl -X POST "http://localhost:7860/tts/convert" \
+curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{"text":"ココロ テキスト読み上げへようこそ。","voice":"jf_alpha","output_format":"mp3"}' \
   -o kokoro-ja.mp3
 ```
+
+`POST /tts/convert` is still available as a backward-compatible synthesis alias.
 
 Health check:
 

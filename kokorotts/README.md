@@ -14,7 +14,8 @@ python kokorotts/app.py
 
 - UI: `http://localhost:7860/`
 - API ping: `GET /tts/ping`
-- API synthesis: `POST /tts/convert`
+- API synthesis: `POST /tts/generate`
+- Backward-compatible API synthesis alias: `POST /tts/convert`
 
 ## Docker and Task workflow
 

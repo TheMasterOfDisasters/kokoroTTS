@@ -118,22 +118,36 @@ Then open: **[http://localhost:7860](http://localhost:7860)**
 ## API Usage Example
 
 ```bash
-curl -X POST "http://localhost:7860/tts/convert" \
+curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello world!","voice":"af_heart"}' \
   -o output.wav
 ```
 
-The API remains backward compatible: when `output_format` is omitted, it returns WAV audio as before.
+The modern synthesis endpoint is `POST /tts/generate`; `POST /tts/convert` remains available for older clients.
+When `output_format` is omitted, the API returns WAV audio as before.
 The web UI defaults to MP3 downloads because it is a more practical size for interactive use.
 To request a smaller response, add `output_format` with one of `mp3`, `flac`, or `ogg`:
 
 ```bash
-curl -X POST "http://localhost:7860/tts/convert" \
+curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello world!","voice":"af_heart","output_format":"mp3"}' \
   -o output.mp3
 ```
+
+Useful discovery endpoints:
+
+- `GET /tts/status`
+- `GET /tts/defaults`
+- `GET /tts/formats`
+- `GET /tts/stream-formats`
+- `GET /tts/languages`
+- `GET /tts/speakers?language=a`
+- `GET /tts/voices`
+- `POST /tts/metrics`
+- `POST /tts/stream`
+- `POST /tts/purge`
 
 ---
 
