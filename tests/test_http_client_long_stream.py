@@ -53,7 +53,7 @@ class HttpClientServerSmokeTest(unittest.TestCase):
     def test_tts_status_returns_runtime_metadata(self) -> None:
         status = self.client.status()
         self.assertEqual(status["type"], "KokoroTTS")
-        self.assertGreaterEqual(status["voices"], 54)
+        self.assertGreaterEqual(status["voices"], 55)
 
     def test_tts_defaults_returns_default_request_values(self) -> None:
         defaults = self.client.defaults()
@@ -72,17 +72,29 @@ class HttpClientServerSmokeTest(unittest.TestCase):
 
     def test_tts_languages_lists_loaded_languages(self) -> None:
         languages = self.client.languages()
-        self.assertEqual(len(languages["languages"]), 9)
+        self.assertGreaterEqual(len(languages["languages"]), 11)
+        self.assertIn("d", languages["languages"])
+        self.assertIn("ko", languages["languages"])
         self.assertIn("j", languages["loaded_languages"])
+        self.assertIn("language_status", languages)
+        self.assertEqual(languages["language_status"]["d"]["status"], "experimental")
+        self.assertEqual(languages["language_status"]["d"]["speaker_count"], 1)
 
     def test_tts_speakers_lists_language_voices(self) -> None:
         speakers = self.client.speakers("j")
         self.assertIn("jf_alpha", speakers["speakers"])
 
+    def test_tts_speakers_lists_experimental_german_voice(self) -> None:
+        speakers = self.client.speakers("d")
+        self.assertEqual(speakers["language"], "d")
+        self.assertIn("df_eva", speakers["speakers"])
+        self.assertEqual(speakers["status"]["status"], "experimental")
+
     def test_tts_voices_lists_all_voice_metadata(self) -> None:
         voices = self.client.voices()
-        self.assertGreaterEqual(len(voices["voices"]), 54)
+        self.assertGreaterEqual(len(voices["voices"]), 55)
         self.assertTrue(any(voice["id"] == "af_heart" for voice in voices["voices"]))
+        self.assertTrue(any(voice["id"] == "df_eva" for voice in voices["voices"]))
 
     def test_tts_metrics_basic_text_metrics(self) -> None:
         metrics = self.client.metrics("Hello from the Python client.", voice="af_heart")

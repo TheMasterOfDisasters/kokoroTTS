@@ -152,12 +152,14 @@ Useful discovery endpoints:
 - `GET /tts/defaults`
 - `GET /tts/formats`
 - `GET /tts/stream-formats`
-- `GET /tts/languages`
+- `GET /tts/languages` lists served and experimental language pipelines
 - `GET /tts/speakers?language=a`
 - `GET /tts/voices`
 - `POST /tts/metrics`
 - `POST /tts/stream`
 - `POST /tts/purge`
+
+The default baked voice set remains 54 voices across American English, British English, Japanese, Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese. German (`d`) is present only in the experimental German support branch. That work is parked until `dida-80b/kokoro-deutsch-eva-k` is publicly downloadable again or a replacement German Kokoro model/voicepack is available. Korean (`ko`) is exposed as experimental pipeline discovery only.
 
 ### Use From Python
 
@@ -239,6 +241,13 @@ task logs
 task client-test
 ```
 
+Experimental German testing is parked while the external Eva-K model repository is not publicly downloadable. If it becomes available again, use:
+
+```bash
+task localrun HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0
+task imageapi-german
+```
+
 Release from a clean tree:
 
 ```bash
@@ -255,6 +264,8 @@ task release
 - Added a dependency-free Python HTTP client for using KokoroTTS endpoints from application code.
 - Added `task client-test` for server-backed Python client coverage across discovery, generation, conversion, streaming, and validation paths.
 - Added optional UI/API audio controls for pitch, tempo, volume, and loudness normalization with neutral defaults for backward compatibility.
+- Added experimental German Eva-K synthesis plumbing via lazy-loaded `dida-80b/kokoro-deutsch-eva-k` model/voice assets, plus upstream-style German number/date/currency normalization before espeak-ng phonemization. This work is parked until that external model repo is publicly downloadable again or replaced.
+- Added Korean language pipeline discovery. Korean remains experimental and does not bundle compatible voice assets yet.
 - Updated Docker publish workflow support for `vX.Y` tags, explicit `hangrylabs/kokorotts` publishing, and manual release dispatch with a selected checkout ref.
 - Removed unnecessary caution callouts from public docs and the Stream tab for a cleaner product-facing experience.
 

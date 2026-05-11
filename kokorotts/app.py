@@ -11,6 +11,7 @@ import torch
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from huggingface_hub import hf_hub_download
 from pydantic import BaseModel, ConfigDict, Field
 
 from kokorotts import __version__ as KOKORO_VERSION
@@ -21,7 +22,12 @@ from kokorotts.sample_texts import (
     get_random_quote,
     refresh_text_for_language_change,
 )
-from kokorotts.voices import LANGUAGE_CHOICES, VOICE_CHOICES
+from kokorotts.voices import (
+    LANGUAGE_CHOICES,
+    VOICE_CHOICES,
+    get_experimental_voice_asset,
+    is_experimental_voice,
+)
 
 SAMPLE_RATE = 24000
 OUTPUT_FORMATS = {
@@ -83,12 +89,30 @@ APP_VERSION = os.getenv("APP_VERSION", KOKORO_VERSION)
 BUILD_ID = os.getenv("BUILD_ID", "stable")
 DEFAULT_DEVICE = os.getenv("KOKOROTTS_DEVICE", "auto")
 MODEL_CACHE = {}
-pipelines = {
-    lang_code: KPipeline(lang_code=lang_code, repo_id=DEFAULT_REPO_ID, model=False)
-    for lang_code in LANGUAGE_CHOICES
+EXPERIMENTAL_LANGUAGE_NOTES = {
+    "d": "Experimental German support uses lazy model/voice assets from dida-80b/kokoro-deutsch-eva-k; these assets are not baked into the default image yet.",
+    "ko": "Experimental Korean G2P is available when the installed misaki build includes Korean support; compatible voice assets are not bundled yet.",
 }
-pipelines["a"].g2p.lexicon.golds["kokoro"] = "kˈOkəɹO"
-pipelines["b"].g2p.lexicon.golds["kokoro"] = "kˈQkəɹQ"
+PIPELINE_ERRORS: dict[str, str] = {}
+
+
+def initialize_pipeline(lang_code: str) -> Optional[KPipeline]:
+    try:
+        return KPipeline(lang_code=lang_code, repo_id=DEFAULT_REPO_ID, model=False)
+    except Exception as exc:
+        PIPELINE_ERRORS[lang_code] = str(exc)
+        return None
+
+
+pipelines = {
+    lang_code: pipeline
+    for lang_code in LANGUAGE_CHOICES
+    if (pipeline := initialize_pipeline(lang_code)) is not None
+}
+if "a" in pipelines:
+    pipelines["a"].g2p.lexicon.golds["kokoro"] = "kˈOkəɹO"
+if "b" in pipelines:
+    pipelines["b"].g2p.lexicon.golds["kokoro"] = "kˈQkəɹQ"
 
 
 def get_cuda_devices() -> list[str]:
@@ -138,19 +162,82 @@ def normalize_device(hardware: str) -> str:
     raise RuntimeError(f"Unsupported device '{hardware}'. Use auto, cpu, or cuda:N.")
 
 
-def get_model(device: str) -> KModel:
-    if device not in MODEL_CACHE:
-        MODEL_CACHE[device] = KModel(repo_id=DEFAULT_REPO_ID).to(device).eval()
-    return MODEL_CACHE[device]
+def get_model(device: str, voice: str = "af_heart") -> KModel:
+    asset = get_experimental_voice_asset(voice)
+    if asset:
+        cache_key = "|".join(
+            [
+                device,
+                asset["model_repo_id"],
+                asset["model_file"],
+                asset["config_repo_id"],
+                asset["config_file"],
+            ]
+        )
+    else:
+        cache_key = f"{device}|{DEFAULT_REPO_ID}"
+    if cache_key not in MODEL_CACHE:
+        if asset:
+            model_path = download_experimental_asset(voice, asset["model_repo_id"], asset["model_file"])
+            config_path = download_experimental_asset(voice, asset["config_repo_id"], asset["config_file"])
+            MODEL_CACHE[cache_key] = KModel(
+                repo_id=asset["model_repo_id"],
+                config=config_path,
+                model=model_path,
+            ).to(device).eval()
+        else:
+            MODEL_CACHE[cache_key] = KModel(repo_id=DEFAULT_REPO_ID).to(device).eval()
+    return MODEL_CACHE[cache_key]
+
+
+def get_experimental_asset_error(voice: str, repo_id: str, filename: str, exc: Exception) -> str:
+    offline = os.getenv("HF_HUB_OFFLINE", "")
+    transformers_offline = os.getenv("TRANSFORMERS_OFFLINE", "")
+    return (
+        f"Experimental voice '{voice}' needs lazy Hugging Face asset '{repo_id}:{filename}', "
+        "but it is not available in the current container cache. "
+        f"Current HF_HUB_OFFLINE={offline or '<unset>'}, TRANSFORMERS_OFFLINE={transformers_offline or '<unset>'}. "
+        "For first-time German testing, restart with: "
+        "task localrun HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0, then run task imageapi-german. "
+        f"Original error: {exc}"
+    )
+
+
+def get_hf_download_token() -> str | bool:
+    token = os.getenv("HF_TOKEN", "").strip()
+    return token if token else False
+
+
+def download_experimental_asset(voice: str, repo_id: str, filename: str) -> str:
+    try:
+        return hf_hub_download(repo_id=repo_id, filename=filename, token=get_hf_download_token())
+    except Exception as exc:
+        raise RuntimeError(get_experimental_asset_error(voice, repo_id, filename, exc)) from exc
+
+
+def get_pipeline_for_voice(voice: str) -> KPipeline:
+    language = get_voice_language(voice)
+    if language not in pipelines:
+        detail = PIPELINE_ERRORS.get(language, "Pipeline is not available for this language.")
+        raise gr.Error(detail)
+    return pipelines[language]
+
+
+def load_voice_pack(pipeline: KPipeline, voice: str):
+    asset = get_experimental_voice_asset(voice)
+    if not asset:
+        return pipeline.load_voice(voice)
+    voice_path = download_experimental_asset(voice, asset["repo_id"], asset["voice_file"])
+    return pipeline.load_voice(voice_path)
 
 
 def synthesize_full(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Optional[bool] = None):
-    pipeline = pipelines[voice[0]]
-    pack = pipeline.load_voice(voice)
+    pipeline = get_pipeline_for_voice(voice)
+    pack = load_voice_pack(pipeline, voice)
     if use_gpu is not None:
         hardware = "auto" if use_gpu else "cpu"
     resolved_device = normalize_device(hardware)
-    model = get_model(resolved_device)
+    model = get_model(resolved_device, voice)
     audio_chunks = []
     phoneme_chunks = []
 
@@ -162,7 +249,7 @@ def synthesize_full(text, voice="af_heart", speed=1, hardware="auto", use_gpu: O
             if resolved_device.startswith("cuda"):
                 gr.Warning(str(exc))
                 gr.Info("Retrying with CPU. To avoid this error, change Hardware to CPU.")
-                audio = get_model("cpu")(ps, ref_s, speed)
+                audio = get_model("cpu", voice)(ps, ref_s, speed)
             else:
                 raise gr.Error(exc)
         audio_chunks.append(audio.numpy())
@@ -177,12 +264,12 @@ def synthesize_full(text, voice="af_heart", speed=1, hardware="auto", use_gpu: O
 
 
 def generate_first(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Optional[bool] = None):
-    pipeline = pipelines[voice[0]]
-    pack = pipeline.load_voice(voice)
+    pipeline = get_pipeline_for_voice(voice)
+    pack = load_voice_pack(pipeline, voice)
     if use_gpu is not None:
         hardware = "auto" if use_gpu else "cpu"
     resolved_device = normalize_device(hardware)
-    model = get_model(resolved_device)
+    model = get_model(resolved_device, voice)
     for _, ps, _ in pipeline(text, voice, speed):
         ref_s = pack[len(ps) - 1]
         try:
@@ -191,7 +278,7 @@ def generate_first(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Op
             if resolved_device.startswith("cuda"):
                 gr.Warning(str(exc))
                 gr.Info("Retrying with CPU. To avoid this error, set Hardware to CPU.")
-                audio = get_model("cpu")(ps, ref_s, speed)
+                audio = get_model("cpu", voice)(ps, ref_s, speed)
             else:
                 raise gr.Error(exc)
         return (SAMPLE_RATE, to_int16_audio(audio.numpy())), ps
@@ -199,7 +286,7 @@ def generate_first(text, voice="af_heart", speed=1, hardware="auto", use_gpu: Op
 
 
 def tokenize_first(text, voice="af_heart"):
-    pipeline = pipelines[voice[0]]
+    pipeline = get_pipeline_for_voice(voice)
     for _, ps, _ in pipeline(text, voice):
         return ps
     return ""
@@ -220,12 +307,15 @@ def generate_all(
     normalize=False,
     use_gpu: Optional[bool] = None,
 ):
-    pipeline = pipelines[voice[0]]
-    pack = pipeline.load_voice(voice)
+    try:
+        pipeline = get_pipeline_for_voice(voice)
+        pack = load_voice_pack(pipeline, voice)
+    except RuntimeError as exc:
+        raise gr.Error(str(exc)) from exc
     if use_gpu is not None:
         hardware = "auto" if use_gpu else "cpu"
     resolved_device = normalize_device(hardware)
-    model = get_model(resolved_device)
+    model = get_model(resolved_device, voice)
     first = True
     for _, ps, _ in pipeline(text, voice, speed):
         ref_s = pack[len(ps) - 1]
@@ -235,7 +325,7 @@ def generate_all(
             if resolved_device.startswith("cuda"):
                 gr.Warning(str(exc))
                 gr.Info("Switching to CPU")
-                audio = get_model("cpu")(ps, ref_s, speed)
+                audio = get_model("cpu", voice)(ps, ref_s, speed)
             else:
                 raise gr.Error(exc)
         processed_audio = apply_audio_effects(
@@ -445,7 +535,10 @@ def synthesize_file(
     volume=1,
     normalize=False,
 ):
-    audio_tuple, phonemes = synthesize_full(text, voice, speed, hardware)
+    try:
+        audio_tuple, phonemes = synthesize_full(text, voice, speed, hardware)
+    except RuntimeError as exc:
+        raise gr.Error(str(exc)) from exc
     if audio_tuple is None:
         return None, phonemes
     sample_rate, waveform = audio_tuple
@@ -466,6 +559,8 @@ def to_int16_audio(audio: np.ndarray) -> np.ndarray:
 def get_voice_language(voice_id: str) -> str:
     if not voice_id:
         return "a"
+    if voice_id.startswith("ko_") or voice_id.startswith("kf_") or voice_id.startswith("km_"):
+        return "ko"
     return voice_id[0] if voice_id[0] in LANGUAGE_CHOICES else "a"
 
 
@@ -479,6 +574,22 @@ def resolve_requested_hardware(device: str, use_gpu: Optional[bool] = None) -> s
 
 def get_voice_choices_for_language(language_code: str) -> list[str]:
     return [voice_id for voice_id in VOICE_CHOICES.values() if get_voice_language(voice_id) == language_code]
+
+
+def get_language_status() -> dict[str, dict[str, object]]:
+    status = {}
+    for language_code, language_name in LANGUAGE_CHOICES.items():
+        speakers = get_voice_choices_for_language(language_code)
+        experimental = language_code in EXPERIMENTAL_LANGUAGE_NOTES
+        status[language_code] = {
+            "name": language_name,
+            "pipeline_loaded": language_code in pipelines,
+            "speaker_count": len(speakers),
+            "status": "experimental" if experimental else "served",
+            "note": EXPERIMENTAL_LANGUAGE_NOTES.get(language_code, ""),
+            "error": PIPELINE_ERRORS.get(language_code, ""),
+        }
+    return status
 
 
 def get_voice_label(voice_id: str) -> str:
@@ -500,6 +611,17 @@ def get_voice_inventory() -> list[dict[str, str]]:
     ]
 
 
+def get_language_availability_markdown() -> str:
+    rows = []
+    for language_code, language in get_language_status().items():
+        if language["status"] == "served":
+            rows.append(f"- **{language['name']}** (`{language_code}`): {language['speaker_count']} voices")
+        else:
+            note = language["note"] or "Experimental pipeline; no bundled voices yet."
+            rows.append(f"- **{language['name']}** (`{language_code}`): experimental, no bundled voices yet. {note}")
+    return "\n".join(rows)
+
+
 def get_supported_output_formats() -> dict[str, dict[str, str]]:
     return {
         key: {
@@ -512,7 +634,8 @@ def get_supported_output_formats() -> dict[str, dict[str, str]]:
 
 
 def get_text_metrics(text: str, voice: str = "af_heart") -> dict[str, int | str]:
-    pipeline = pipelines[get_voice_language(voice)]
+    language = get_voice_language(voice)
+    pipeline = get_pipeline_for_voice(voice)
     phoneme_segments = []
     if text.strip():
         try:
@@ -539,6 +662,7 @@ def get_status_payload() -> dict:
         "sample_rate": SAMPLE_RATE,
         "configured_languages": list(LANGUAGE_CHOICES),
         "languages": LANGUAGE_CHOICES,
+        "language_status": get_language_status(),
         "voices": len(VOICE_CHOICES),
         "loaded_model_devices": list(MODEL_CACHE),
         "output_formats": get_supported_output_formats(),
@@ -547,7 +671,9 @@ def get_status_payload() -> dict:
 
 
 for voice_id in VOICE_CHOICES.values():
-    pipelines[voice_id[0]].load_voice(voice_id)
+    language = get_voice_language(voice_id)
+    if language in pipelines and not is_experimental_voice(voice_id):
+        pipelines[language].load_voice(voice_id)
 
 TOKEN_NOTE = """
 💡 Customize pronunciation with Markdown link syntax and /slashes/ like `[Kokoro](/kˈOkəɹO/)`
@@ -620,6 +746,8 @@ with gr.Blocks(title="KokoroTTS") as ui:
                     filterable=False,
                     allow_custom_value=False,
                 )
+                with gr.Accordion("Language Availability", open=False):
+                    gr.Markdown(get_language_availability_markdown())
                 hardware = gr.Dropdown(
                     hardware_choices,
                     value=default_hardware,
@@ -763,13 +891,16 @@ def synthesize_payload(payload: TTSRequest) -> tuple[str, int, np.ndarray]:
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    audio_tuple, _ = synthesize_full(
-        text=payload.text,
-        voice=payload.voice,
-        speed=payload.speed,
-        hardware=payload.device,
-        use_gpu=payload.use_gpu,
-    )
+    try:
+        audio_tuple, _ = synthesize_full(
+            text=payload.text,
+            voice=payload.voice,
+            speed=payload.speed,
+            hardware=payload.device,
+            use_gpu=payload.use_gpu,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if audio_tuple is None:
         return output_format, SAMPLE_RATE, np.zeros(0, dtype=np.int16)
     sample_rate, waveform = audio_tuple
@@ -811,14 +942,17 @@ def stream_audio_response(payload: TTSRequest, route_name: str) -> StreamingResp
 
 
 def iter_stream_audio(payload: StreamingTTSRequest, stream_format: str):
-    pipeline = pipelines[get_voice_language(payload.voice)]
-    pack = pipeline.load_voice(payload.voice)
+    try:
+        pipeline = get_pipeline_for_voice(payload.voice)
+        pack = load_voice_pack(pipeline, payload.voice)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if payload.use_gpu is not None:
         hardware = "auto" if payload.use_gpu else "cpu"
     else:
         hardware = payload.device
     resolved_device = normalize_device(hardware)
-    model = get_model(resolved_device)
+    model = get_model(resolved_device, payload.voice)
     for _, ps, _ in pipeline(payload.text, payload.voice, payload.speed):
         ref_s = pack[len(ps) - 1]
         audio = to_int16_audio(model(ps, ref_s, payload.speed).numpy())
@@ -885,14 +1019,23 @@ def stream_formats() -> dict:
 
 @api.get("/tts/languages")
 def languages() -> dict:
-    return {"languages": LANGUAGE_CHOICES, "loaded_languages": list(LANGUAGE_CHOICES)}
+    return {
+        "languages": LANGUAGE_CHOICES,
+        "loaded_languages": list(pipelines),
+        "language_status": get_language_status(),
+    }
 
 
 @api.get("/tts/speakers")
 def speakers(language: str = Query("a", description="Kokoro language prefix.")) -> dict:
     if language not in LANGUAGE_CHOICES:
         raise HTTPException(status_code=404, detail="Language not found")
-    return {"language": language, "language_name": LANGUAGE_CHOICES[language], "speakers": get_voice_choices_for_language(language)}
+    return {
+        "language": language,
+        "language_name": LANGUAGE_CHOICES[language],
+        "speakers": get_voice_choices_for_language(language),
+        "status": get_language_status()[language],
+    }
 
 
 @api.get("/tts/voices")

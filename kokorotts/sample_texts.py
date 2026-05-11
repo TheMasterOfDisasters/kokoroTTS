@@ -28,6 +28,18 @@ SAMPLE_TEXTS = {
         "Try a short sentence first, then a longer one when the kettle has finished negotiating.",
         "The best audio tests are brief, cheerful, and unlikely to cause trouble at the village hall.",
     ],
+    "d": [
+        "Wählen Sie eine Stimme, passen Sie bei Bedarf die Geschwindigkeit an und klicken Sie auf Generieren. Das MP3 ist schneller fertig als der Kaffee verdächtig wird.",
+        "Ein guter Testsatz klingt klar, freundlich und ein kleines bisschen nach pünktlicher Bahn.",
+        "Diese Stimme liest einen deutschen Beispielsatz, damit Aussprache, Rhythmus und Pausen geprüft werden können.",
+        "Wenn ein Gartenzwerg einen Podcast hätte, würde er wahrscheinlich zuerst die Tonqualität loben.",
+        "Beginnen Sie mit einem kurzen Satz und probieren Sie danach einen längeren Absatz mit mehr Schwung.",
+        "Heute verwandelt Kokoro Text in Sprache, ohne ein Formular in dreifacher Ausfertigung zu verlangen.",
+        "Wenn die Stimme zu schnell klingt, stellen Sie die Geschwindigkeit etwas niedriger ein.",
+        "Dieser Satz testet Umlaute, Zahlen und Satzzeichen: fünf Bücher kosten zwölf Euro.",
+        "Eine ruhige Stimme macht sogar eine Einkaufsliste ein wenig amtlicher.",
+        "Klicken Sie auf Generieren, hören Sie das Ergebnis und entscheiden Sie dann, ob die Stimme noch einen Satz verdient.",
+    ],
     "j": [
         "音声を選び、速度を調整して、生成ボタンを押してください。お茶が冷める前に音声ができます。",
         "朝の駅のアナウンスみたいに、はっきり聞こえるか試してみましょう。",
@@ -117,6 +129,7 @@ SAMPLE_TEXTS = {
 VOICE_LANGUAGE_GROUPS = {
     "a": "en",
     "b": "en",
+    "d": "d",
     "j": "j",
     "z": "z",
     "e": "e",

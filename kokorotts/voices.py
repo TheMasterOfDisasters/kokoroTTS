@@ -1,13 +1,27 @@
 LANGUAGE_CHOICES = {
     "a": "American English",
     "b": "British English",
+    "d": "German",
     "j": "Japanese",
+    "ko": "Korean",
     "z": "Mandarin Chinese",
     "e": "Spanish",
     "f": "French",
     "h": "Hindi",
     "i": "Italian",
     "p": "Brazilian Portuguese",
+}
+
+EXPERIMENTAL_VOICE_ASSETS = {
+    "df_eva": {
+        "repo_id": "dida-80b/kokoro-deutsch-eva-k",
+        "model_repo_id": "dida-80b/kokoro-deutsch-eva-k",
+        "model_file": "kokoro_german_converted.pth",
+        "config_repo_id": "hexgrad/Kokoro-82M",
+        "config_file": "config.json",
+        "voice_file": "eva_k.pt",
+        "note": "Experimental German Eva-K voicepack from dida-80b/kokoro-deutsch-eva-k.",
+    },
 }
 
 VOICE_CHOICES = {
@@ -65,8 +79,19 @@ VOICE_CHOICES = {
     "🇧🇷 🚺 Dora": "pf_dora",
     "🇧🇷 🚹 Alex": "pm_alex",
     "🇧🇷 🚹 Santa": "pm_santa",
+    "🇩🇪 🚺 Eva-K (experimental)": "df_eva",
 }
 
 
-def voice_ids() -> list[str]:
-    return list(VOICE_CHOICES.values())
+def is_experimental_voice(voice_id: str) -> bool:
+    return voice_id in EXPERIMENTAL_VOICE_ASSETS
+
+
+def get_experimental_voice_asset(voice_id: str) -> dict[str, str] | None:
+    return EXPERIMENTAL_VOICE_ASSETS.get(voice_id)
+
+
+def voice_ids(include_experimental: bool = False) -> list[str]:
+    if include_experimental:
+        return list(VOICE_CHOICES.values())
+    return [voice_id for voice_id in VOICE_CHOICES.values() if not is_experimental_voice(voice_id)]

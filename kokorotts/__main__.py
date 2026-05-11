@@ -23,12 +23,14 @@ from loguru import logger
 languages = [
     "a",  # American English
     "b",  # British English
+    "d",  # German
     "h",  # Hindi
     "e",  # Spanish
     "f",  # French
     "i",  # Italian
     "p",  # Brazilian Portuguese
     "j",  # Japanese
+    "ko",  # Korean
     "z",  # Mandarin Chinese
 ]
 
@@ -41,7 +43,8 @@ def generate_audio(
 ) -> Generator["KPipeline.Result", None, None]:
     from kokorotts import KPipeline
 
-    if not voice.startswith(kokoro_language):
+    korean_voice = kokoro_language == "ko" and voice.startswith(("ko_", "kf_", "km_"))
+    if not korean_voice and not voice.startswith(kokoro_language):
         logger.warning(f"Voice {voice} is not made for language {kokoro_language}")
     pipeline = KPipeline(lang_code=kokoro_language)
     yield from pipeline(text, voice=voice, speed=speed, split_pattern=r"\n+")
@@ -116,7 +119,7 @@ def main() -> None:
         logger.level("DEBUG")
     logger.debug(args)
 
-    lang = args.language or args.voice[0]
+    lang = args.language or ("ko" if args.voice.startswith(("ko_", "kf_", "km_")) else args.voice[0])
 
     if args.text is not None and args.input_file is not None:
         raise Exception("You cannot specify both 'text' and 'input_file'")

@@ -3,6 +3,8 @@
 Python UI + API application for Kokoro TTS.
 
 The app exposes the bundled Kokoro-82M voice set across American English, British English, Japanese, Mandarin, Spanish, French, Hindi, Italian, and Brazilian Portuguese.
+German exists only as experimental support branch work. The Eva-K integration (`df_eva`, backed by `dida-80b/kokoro-deutsch-eva-k`) is parked until that external model repo is publicly downloadable again or replaced with accessible German Kokoro assets.
+Korean language discovery is experimental and does not have bundled compatible voice assets yet.
 
 ## Run without Docker
 
@@ -40,6 +42,7 @@ task client-test
 ```
 
 `localrun` mounts the full local `kokorotts/` directory into `/app/kokorotts` and enables auto-reload via `UVICORN_RELOAD=1`.
+Experimental German testing should not continue until the external Eva-K model/voice assets are publicly downloadable again. If they become available, run `task localrun HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0` and then `task imageapi-german`.
 
 Optional runtime env vars:
 

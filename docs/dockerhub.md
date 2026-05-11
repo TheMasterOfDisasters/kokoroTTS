@@ -59,6 +59,8 @@ The container includes the web UI and the HTTP API on the same port.
 - Backward-compatible WAV API responses unless `output_format` or `format` is requested
 - WAV, MP3, FLAC, and OGG output support
 - Full Kokoro-82M voice set exposed in the UI and API
+- Experimental German Eva-K plumbing is parked until public model/voice assets are downloadable again
+- Experimental Korean language pipeline discovery for future compatible voice assets
 - GPU support when Docker/NVIDIA support is available
 - Offline-friendly usage once the image and baked model assets are available locally
 
@@ -89,6 +91,15 @@ curl -X POST "http://localhost:7860/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello from Hangry Labs KokoroTTS","voice":"af_heart","output_format":"mp3","pitch_semitones":2,"tempo":1.1,"volume":0.9,"normalize":true}' \
   -o hello-styled.mp3
+```
+
+Experimental German Eva-K support was prototyped as `df_eva`, but work is parked because the external `dida-80b/kokoro-deutsch-eva-k` model/voice assets are not currently publicly downloadable through the Hugging Face API. If those assets become available again or are replaced, first use requires running the container with Hugging Face offline mode disabled:
+
+```bash
+docker run -p 7860:7860 --gpus all \
+  -e HF_HUB_OFFLINE=0 \
+  -e TRANSFORMERS_OFFLINE=0 \
+  hangrylabs/kokorotts:v0.2
 ```
 
 Use another voice:

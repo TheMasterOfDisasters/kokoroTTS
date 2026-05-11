@@ -11,12 +11,16 @@ import os
 ALIASES = {
     'en-us': 'a',
     'en-gb': 'b',
+    'de': 'd',
+    'de-de': 'd',
     'es': 'e',
     'fr-fr': 'f',
     'hi': 'h',
     'it': 'i',
     'pt-br': 'p',
     'ja': 'j',
+    'ko': 'ko',
+    'k': 'ko',
     'zh': 'z',
 }
 
@@ -26,6 +30,7 @@ LANG_CODES = dict(
     b='British English',
 
     # espeak-ng
+    d='German',
     e='es',
     f='fr-fr',
     h='hi',
@@ -34,6 +39,9 @@ LANG_CODES = dict(
 
     # pip install misaki[ja]
     j='Japanese',
+
+    # pip install misaki[ko]
+    ko='Korean',
 
     # pip install misaki[zh]
     z='Mandarin Chinese',
@@ -121,12 +129,26 @@ class KPipeline:
                 logger.warning({str(e)})
                 fallback = None
             self.g2p = en.G2P(trf=trf, british=lang_code=='b', fallback=fallback, unk='')
+        elif lang_code == 'd':
+            try:
+                from .de_g2p import DEG2P
+                self.g2p = DEG2P()
+            except RuntimeError as e:
+                logger.error(str(e))
+                raise
         elif lang_code == 'j':
             try:
                 from misaki import ja
                 self.g2p = ja.JAG2P()
             except ImportError:
                 logger.error("You need to `pip install misaki[ja]` to use lang_code='j'")
+                raise
+        elif lang_code == 'ko':
+            try:
+                from misaki import ko
+                self.g2p = ko.KOG2P()
+            except ImportError:
+                logger.error("You need to `pip install misaki[ko]` to use lang_code='ko'")
                 raise
         elif lang_code == 'z':
             try:
